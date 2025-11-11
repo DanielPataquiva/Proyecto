@@ -101,10 +101,10 @@ class Robot:
     # ---------------------------------------------------
     def apagar_servos(self):
         """Apaga todos los servos (por seguridad o finalización)"""
-        print("🛑 Apagando servos...")
+        print("Apagando servos...")
         try:
             for i in range(5):
                 self.kit.servo[i].angle = None
-            print("✅ Servos apagados correctamente.")
+            print("Servos apagados correctamente.")
         except Exception as e:
-            print("⚠️ Error al apagar servos:", e)
+            print("Error al apagar servos:", e)
