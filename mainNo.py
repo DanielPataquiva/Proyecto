@@ -8,23 +8,20 @@ from PyQt5.QtCore import Qt, QTimer
 from robot import Robot
 from sensor import Ultrasonico
 
-# ------------------------------
 # Forzar X11 en Raspberry Pi
-# ------------------------------
 os.environ["QT_QPA_PLATFORM"] = "xcb"
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Control del Robot - Doble Sensor")
+        self.setWindowTitle("Control del Robot - Sensor único")
         self.setGeometry(200, 100, 600, 400)
 
-        # Robot y sensores
+        # Robot y sensor
         self.robot = Robot()
-        self.sensores = Ultrasonico()
+        self.sensor = Ultrasonico()
         self.detener = False
-        self.modo_lento = False
 
         # Layout principal
         layout = QVBoxLayout()
@@ -55,8 +52,8 @@ class MainWindow(QMainWindow):
         botones.addWidget(btn_place)
         layout.addLayout(botones)
 
-        # Estado sensores
-        self.estado_label = QLabel("Distancias: -- cm | Estado: Normal")
+        # Estado sensor
+        self.estado_label = QLabel("Distancia: -- cm | Estado: Normal")
         layout.addWidget(self.estado_label)
 
         # Widget central
@@ -64,44 +61,27 @@ class MainWindow(QMainWindow):
         widget.setLayout(layout)
         self.setCentralWidget(widget)
 
-        # Timer sensores
+        # Timer sensor
         self.timer = QTimer()
-        self.timer.timeout.connect(self.verificar_sensores)
+        self.timer.timeout.connect(self.verificar_sensor)
         self.timer.start(100)  # cada 100 ms
 
-        # Inicializar robot en cero sin retraso extra
+        # Inicializar robot en cero
         self.actualizar_robot(initial=True)
 
-    # ---------------------------------
-    # Lectura sensores
-    # ---------------------------------
-    def verificar_sensores(self):
-        dist1 = self.sensores.medir_distancia_principal()
-        dist2 = self.sensores.medir_distancia_secundario()
+    # Lectura sensor único
+    def verificar_sensor(self):
+        dist = self.sensor.medir_distancia_principal()
         estado = "Normal"
-
-        # Sensor principal: detener < 10cm
-        if dist1 < 10:
+        if dist < 10:
             self.detener = True
             estado = "🚫 Detenido (objeto cercano)"
         else:
             self.detener = False
 
-        # Sensor secundario: lento < 5cm
-        if dist2 < 5:
-            self.modo_lento = True
-            if estado == "Normal":
-                estado = "🐢 Modo lento"
-        else:
-            self.modo_lento = False
+        self.estado_label.setText(f"Distancia: {dist:.1f} cm | Estado: {estado}")
 
-        self.estado_label.setText(
-            f"Distancia1: {dist1:.1f} cm | Distancia2: {dist2:.1f} cm | Estado: {estado}"
-        )
-
-    # ---------------------------------
     # Actualizar robot según sliders
-    # ---------------------------------
     def actualizar_robot(self, initial=False):
         if self.detener and not initial:
             return
@@ -109,9 +89,6 @@ class MainWindow(QMainWindow):
         angulos = [s.value() for s in self.sliders]
         for i, label in enumerate(self.labels):
             label.setText(f"{['Base','Hombro','Codo','Muñeca'][i]}: {angulos[i]}°")
-
-        # Ajustar velocidad
-        self.robot.velocidad = 0.15 if self.modo_lento else 0.05
 
         # Mover servos físicos
         self.robot.mover_servos(angulos[0], angulos[1])
