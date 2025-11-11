@@ -1,33 +1,65 @@
 import RPi.GPIO as GPIO
 import time
 
+
 class Ultrasonico:
-    def __init__(self, trigger_pin=23, echo_pin=24):
-        self.trigger_pin = trigger_pin
-        self.echo_pin = echo_pin
+    """
+    Clase para manejar dos sensores ultrasónicos HC-SR04.
+    """
 
+    def __init__(self, trigger_principal=23, echo_principal=24,
+                 trigger_secundario=17, echo_secundario=27):
+        # Pines del sensor principal
+        self.trig1 = trigger_principal
+        self.echo1 = echo_principal
+
+        # Pines del sensor secundario
+        self.trig2 = trigger_secundario
+        self.echo2 = echo_secundario
+
+        # Configuración de pines
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.trigger_pin, GPIO.OUT)
-        GPIO.setup(self.echo_pin, GPIO.IN)
+        for pin in [self.trig1, self.trig2]:
+            GPIO.setup(pin, GPIO.OUT)
+        for pin in [self.echo1, self.echo2]:
+            GPIO.setup(pin, GPIO.IN)
 
-    def medir_distancia(self):
-        """Devuelve la distancia medida en centímetros"""
-        GPIO.output(self.trigger_pin, True)
+    # ---------------------------
+    # Sensor principal
+    # ---------------------------
+    def medir_distancia_principal(self):
+        return self._medir_distancia(self.trig1, self.echo1)
+
+    # ---------------------------
+    # Sensor secundario
+    # ---------------------------
+    def medir_distancia_secundario(self):
+        return self._medir_distancia(self.trig2, self.echo2)
+
+    # ---------------------------
+    # Función común
+    # ---------------------------
+    def _medir_distancia(self, trig, echo):
+        # Enviar pulso de disparo
+        GPIO.output(trig, True)
         time.sleep(0.00001)
-        GPIO.output(self.trigger_pin, False)
+        GPIO.output(trig, False)
 
-        start_time = time.time()
-        stop_time = time.time()
+        # Medir tiempo de respuesta
+        start = time.time()
+        stop = time.time()
 
-        while GPIO.input(self.echo_pin) == 0:
-            start_time = time.time()
+        # Esperar a que el ECHO suba
+        while GPIO.input(echo) == 0:
+            start = time.time()
 
-        while GPIO.input(self.echo_pin) == 1:
-            stop_time = time.time()
+        # Esperar a que el ECHO baje
+        while GPIO.input(echo) == 1:
+            stop = time.time()
 
-        elapsed = stop_time - start_time
-        distancia = (elapsed * 34300) / 2
-        return distancia
+        tiempo_transcurrido = stop - start
+        distancia_cm = (tiempo_transcurrido * 34300) / 2
+        return distancia_cm
 
     def cleanup(self):
         GPIO.cleanup()
