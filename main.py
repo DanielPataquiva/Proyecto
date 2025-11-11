@@ -96,11 +96,11 @@ class MainWindow(QWidget):
         # Mover servos físicos
         self.robot.mover_servo(0, ang_base)      # Base
         self.robot.mover_servo(1, ang_hombro)    # Hombro servo 1
-        self.robot.mover_servo(2, ang_hombro)    # Hombro servo 2 (mismo ángulo)
+        self.robot.mover_servo(2, ang_hombro)    # Hombro servo 2 (sincronizados)
         self.robot.mover_servo(3, ang_codo)      # Codo
         self.robot.mover_servo(4, ang_muneca)    # Muñeca
 
-        # Actualizar simulación
+        # Actualizar simulación visual
         self.actualizar_simulacion(ang_base, ang_hombro, ang_codo, ang_muneca)
 
     def abrir_pinza(self):
@@ -110,9 +110,25 @@ class MainWindow(QWidget):
         self.robot.mover_servo(5, 90)
 
     def actualizar_simulacion(self, base, hombro, codo, muneca):
+        """Dibuja el modelo del robot manualmente en el canvas"""
         q_rad = np.radians([base, hombro, codo, muneca])
+        T = self.robot_model.fkine_all(q_rad)
+
+        # Extraer puntos de cada articulación
+        xs = [0]
+        ys = [0]
+        zs = [0]
+        for i in range(len(T)):
+            xs.append(T[i].t[0])
+            ys.append(T[i].t[1])
+            zs.append(T[i].t[2])
+
+        # Dibujar
         self.ax.clear()
-        self.robot_model.plot(q_rad, block=False, ax=self.ax, limits=[-0.3, 0.3, -0.3, 0.3, 0, 0.4])
+        self.ax.plot(xs, ys, zs, '-o', linewidth=3, markersize=8)
+        self.ax.set_xlim([-0.3, 0.3])
+        self.ax.set_ylim([-0.3, 0.3])
+        self.ax.set_zlim([0, 0.4])
         self.ax.set_title("Simulación 3D del Brazo Robótico")
         self.ax.set_xlabel("X")
         self.ax.set_ylabel("Y")
