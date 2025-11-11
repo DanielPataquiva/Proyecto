@@ -1,81 +1,51 @@
-import time
 from adafruit_servokit import ServoKit
-
+import time
 
 class Robot:
-    """
-    Clase para controlar un brazo robótico con servomotores
-    conectados a una placa PCA9685.
-    """
-
     def __init__(self):
+        # Inicializa la PCA9685 (16 canales)
         self.kit = ServoKit(channels=16)
-        self.velocidad = 0.05  # velocidad base (segundos por paso)
 
-        # Canales de servos
-        self.base_channel = 0
-        self.hombro_channel = 1
-        self.codo_channel = 2
-        self.muneca_channel = 3
-        self.pinza_channel = 4
+        # Asignación de servos
+        self.servo_base = 0
+        self.servo_hombro_1 = 1
+        self.servo_hombro_2 = 2
+        self.servo_codo = 3
+        self.servo_muneca = 4
+        self.servo_pinza = 5
 
-        # Posiciones iniciales
-        self.pos_base = 0
-        self.pos_hombro = 0
-        self.pos_codo = 0
-        self.pos_muneca = 0
-        self.pos_pinza = 0
+        # Inicializar en 0°
+        self.reset()
 
-        self._inicializar_posiciones()
-
-    def _inicializar_posiciones(self):
-        print("Inicializando posiciones del robot...")
-        try:
-            self.kit.servo[self.base_channel].angle = self.pos_base
-            self.kit.servo[self.hombro_channel].angle = self.pos_hombro
-            self.kit.servo[self.codo_channel].angle = self.pos_codo
-            self.kit.servo[self.muneca_channel].angle = self.pos_muneca
-            self.kit.servo[self.pinza_channel].angle = self.pos_pinza
-            time.sleep(0.5)
-            print("✅ Robot inicializado correctamente.")
-        except Exception as e:
-            print("⚠️ Error al inicializar posiciones:", e)
-
-    # Movimiento general
-    def mover_servos(self, base, hombro):
-        self.mover_servo(self.base_channel, base)
-        self.mover_servo(self.hombro_channel, hombro)
-
-    def mover_codo(self, codo):
-        self.mover_servo(self.codo_channel, codo)
-
-    def mover_muneca(self, muneca):
-        self.mover_servo(self.muneca_channel, muneca)
-
-    # Pinza
-    def pick(self):
-        print("Cerrando pinza (Pick)")
-        self.mover_servo(self.pinza_channel, 30)
-
-    def place(self):
-        print("Abriendo pinza (Place)")
-        self.mover_servo(self.pinza_channel, 90)
-
-    # Función auxiliar
     def mover_servo(self, canal, angulo):
         try:
-            angulo = max(0, min(180, angulo))
             self.kit.servo[canal].angle = angulo
-            time.sleep(self.velocidad)
+            time.sleep(0.02)  # pequeño delay
         except Exception as e:
-            print(f"⚠️ Error al mover el servo {canal}: {e}")
+            print(f"Error servo {canal}: {e}")
 
-    # Apagado de servos
-    def apagar_servos(self):
-        print("Apagando servos...")
-        try:
-            for i in range(5):
-                self.kit.servo[i].angle = None
-            print("✅ Servos apagados.")
-        except Exception as e:
-            print("⚠️ Error al apagar servos:", e)
+    def mover_servos(self, ang_base, ang_hombro):
+        # Base
+        self.mover_servo(self.servo_base, ang_base)
+        # Hombros sincronizados
+        self.mover_servo(self.servo_hombro_1, ang_hombro)
+        self.mover_servo(self.servo_hombro_2, ang_hombro)
+
+    def mover_codo(self, angulo):
+        self.mover_servo(self.servo_codo, angulo)
+
+    def mover_muneca(self, angulo):
+        self.mover_servo(self.servo_muneca, angulo)
+
+    def pick(self):
+        self.mover_servo(self.servo_pinza, 0)
+
+    def place(self):
+        self.mover_servo(self.servo_pinza, 180)
+
+    def reset(self):
+        print("Inicializando posiciones del robot...")
+        self.mover_servos(0, 0)
+        self.mover_codo(0)
+        self.mover_muneca(0)
+        self.pick()

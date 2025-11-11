@@ -1,10 +1,9 @@
 import RPi.GPIO as GPIO
 import time
 
-
 class Ultrasonico:
     """
-    Clase para manejar dos sensores ultrasónicos HC-SR04.
+    Clase para manejar dos sensores HC-SR04.
     """
 
     def __init__(self, trigger_principal=23, echo_principal=24,
@@ -24,36 +23,24 @@ class Ultrasonico:
         for pin in [self.echo1, self.echo2]:
             GPIO.setup(pin, GPIO.IN)
 
-    # ---------------------------
-    # Sensor principal
-    # ---------------------------
     def medir_distancia_principal(self):
         return self._medir_distancia(self.trig1, self.echo1)
 
-    # ---------------------------
-    # Sensor secundario
-    # ---------------------------
     def medir_distancia_secundario(self):
         return self._medir_distancia(self.trig2, self.echo2)
 
-    # ---------------------------
-    # Función común
-    # ---------------------------
     def _medir_distancia(self, trig, echo):
-        # Enviar pulso de disparo
         GPIO.output(trig, True)
         time.sleep(0.00001)
         GPIO.output(trig, False)
 
-        # Medir tiempo de respuesta
         start = time.time()
         stop = time.time()
 
-        # Esperar a que el ECHO suba
+        # Esperar a que suba el ECHO
         while GPIO.input(echo) == 0:
             start = time.time()
-
-        # Esperar a que el ECHO baje
+        # Esperar a que baje el ECHO
         while GPIO.input(echo) == 1:
             stop = time.time()
 
