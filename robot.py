@@ -1,94 +1,67 @@
-# robot.py
 from adafruit_servokit import ServoKit
 import time
 
 class Robot:
-    def __init__(self, transition_delay=0.004):
-        # Inicialización del controlador PCA9685
+    def __init__(self):
+        # Inicializa la PCA9685 (controladora de servos)
         self.kit = ServoKit(channels=16)
-        self.transition_delay = transition_delay
 
-        # Definición de los servos (los dos del hombro se controlan juntos)
-        self.servos = {
-            "base": [0],
-            "hombro": [1, 2],  # Dos servos sincronizados
-            "codo": [3],
-            "muneca": [4],
-            "pinza": [5]
-        }
+        # Asignaci�n de canales para los 6 servos del brazo
+        self.servo_base = 0          # Base giratoria
+        self.servo_hombro_1 = 1      # Hombro izquierdo
+        self.servo_hombro_2 = 2      # Hombro derecho (sincronizado)
+        self.servo_codo = 3          # Codo
+        self.servo_muneca = 4        # Mu�eca
+        self.servo_pinza = 5         # Pinza (actuador final)
 
-        # Configuración de rango de pulso
-        for ch_list in self.servos.values():
-            for ch in ch_list:
-                try:
-                    self.kit.servo[ch].set_pulse_width_range(500, 2500)
-                    self.kit.servo[ch].actuation_range = 180
-                except Exception as e:
-                    print(f"⚠️ Advertencia al configurar canal {ch}: {e}")
+        # Posici�n inicial
+        self.reset()
 
-        # Posiciones iniciales
-        self.angles = {name: 90 for name in self.servos}
-        self._aplicar_posiciones_iniciales()
-
-    def _aplicar_posiciones_iniciales(self):
-        for name, ch_list in self.servos.items():
-            for ch in ch_list:
-                try:
-                    self.kit.servo[ch].angle = self.angles[name]
-                except Exception as e:
-                    print(f"⚠️ Error aplicando ángulo inicial en {name} (canal {ch}): {e}")
-        print("✅ Servos inicializados en 90° (posición media).")
-
-    def mover_servo(self, nombre, objetivo):
-        """Mueve gradualmente un servo (o grupo de servos) al ángulo deseado."""
-        if nombre not in self.servos:
-            print(f"⚠️ Servo desconocido: {nombre}")
-            return
-
-        if not (0 <= objetivo <= 180):
-            print(f"⚠️ Ángulo fuera de rango: {objetivo}")
-            return
-
-        actual = int(self.angles.get(nombre, 90))
-        objetivo = int(objetivo)
-        if objetivo == actual:
-            return
-
-        paso = 1 if objetivo > actual else -1
-
+    def mover_servo(self, canal, angulo):
+        """Mueve un solo servo al �ngulo especificado (0�180�)"""
         try:
-            for a in range(actual, objetivo, paso):
-                for ch in self.servos[nombre]:
-                    self.kit.servo[ch].angle = a
-                time.sleep(self.transition_delay)
-            # Posición final
-            for ch in self.servos[nombre]:
-                self.kit.servo[ch].angle = objetivo
-
-            self.angles[nombre] = objetivo
-            print(f"[{nombre}] movido a {objetivo}°")
+            self.kit.servo[canal].angle = angulo
+            time.sleep(0.05)
         except Exception as e:
-            print(f"⚠️ Error moviendo {nombre}: {e}")
+            print(f"Error al mover el servo {canal}: {e}")
 
-    def set_servo_direct(self, nombre, angulo):
-        """Mover sin interpolación."""
-        if nombre not in self.servos:
-            print(f"⚠️ Servo desconocido: {nombre}")
-            return
+    def mover_servos(self, ang_base, ang_hombro):
+        """Mueve los servos de la base y ambos hombros al tiempo"""
         try:
-            for ch in self.servos[nombre]:
-                self.kit.servo[ch].angle = angulo
-            self.angles[nombre] = angulo
-            print(f"[{nombre}] set directo a {angulo}°")
+            # Base giratoria
+            self.kit.servo[self.servo_base].angle = ang_base
+
+            # Hombros sincronizados
+            self.kit.servo[self.servo_hombro_1].angle = ang_hombro
+            self.kit.servo[self.servo_hombro_2].angle = ang_hombro
+
+            time.sleep(0.05)
         except Exception as e:
-            print(f"⚠️ Error set directo {nombre}: {e}")
+            print(f"Error al mover servos base/hombro: {e}")
+
+    def mover_codo(self, angulo):
+        """Mueve el codo"""
+        self.mover_servo(self.servo_codo, angulo)
+
+    def mover_muneca(self, angulo):
+        """Mueve la mu�eca"""
+        self.mover_servo(self.servo_muneca, angulo)
 
     def pick(self):
-        """Pick: cerrar pinza (0°)."""
-        print("🟢 PICK: cerrando pinza")
-        self.mover_servo("pinza", 0)
+        """Cierra la pinza"""
+        self.mover_servo(self.servo_pinza, 0)
 
     def place(self):
-        """Place: abrir pinza (180°)."""
-        print("🔵 PLACE: abriendo pinza")
-        self.mover_servo("pinza", 180)
+        """Abre la pinza"""
+        self.mover_servo(self.servo_pinza, 180)
+
+    def reset(self):
+        """Lleva todos los servos a 0�"""
+        print("Reiniciando robot a posici�n inicial...")
+        self.kit.servo[self.servo_base].angle = 0
+        self.kit.servo[self.servo_hombro_1].angle = 0
+        self.kit.servo[self.servo_hombro_2].angle = 0
+        self.kit.servo[self.servo_codo].angle = 0
+        self.kit.servo[self.servo_muneca].angle = 0
+        self.kit.servo[self.servo_pinza].angle = 0
+        time.sleep(0.2)
