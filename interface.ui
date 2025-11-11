@@ -6,154 +6,149 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>900</width>
+    <width>1000</width>
     <height>600</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Control Brazo Robótico - Simulación Embebida</string>
+   <string>Brazo Robótico - Control y Simulación</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout">
-    <!-- Panel izquierdo: controles -->
     <item>
-     <widget class="QWidget" name="left_panel">
-      <layout class="QVBoxLayout" name="verticalLayout_left">
-       <item>
-        <widget class="QLabel" name="label_title">
-         <property name="text"><string>Control Manual - Brazo Robótico</string></property>
-         <property name="alignment"><set>Qt::AlignCenter</set></property>
-         <property name="styleSheet"><string notr="true">font-size:16pt; font-weight:bold; color:black;</string></property>
-        </widget>
-       </item>
+     <layout class="QVBoxLayout" name="control_layout">
 
-       <item>
-        <widget class="QGroupBox" name="group_servos">
-         <property name="title"><string>Servos</string></property>
-         <layout class="QFormLayout" name="formLayout">
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_base"><property name="text"><string>Base</string></property></widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QSlider" name="slider_base">
-            <property name="orientation"><enum>Qt::Horizontal</enum></property>
-            <property name="minimum"><number>0</number></property>
-            <property name="maximum"><number>180</number></property>
-           </widget>
-          </item>
+      <item>
+       <widget class="QLabel" name="label_title">
+        <property name="text">
+         <string><b>Control del Brazo Robótico</b></string>
+        </property>
+       </widget>
+      </item>
 
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_hombro"><property name="text"><string>Hombro (sincronizado)</string></property></widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QSlider" name="slider_hombro">
-            <property name="orientation"><enum>Qt::Horizontal</enum></property>
-            <property name="minimum"><number>0</number></property>
-            <property name="maximum"><number>180</number></property>
-           </widget>
-          </item>
+      <item>
+       <widget class="QLabel" name="label_base">
+        <property name="text">
+         <string>Base</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSlider" name="slider_base">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
 
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_codo"><property name="text"><string>Codo</string></property></widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QSlider" name="slider_codo">
-            <property name="orientation"><enum>Qt::Horizontal</enum></property>
-            <property name="minimum"><number>0</number></property>
-            <property name="maximum"><number>180</number></property>
-           </widget>
-          </item>
+      <item>
+       <widget class="QLabel" name="label_hombro">
+        <property name="text">
+         <string>Hombro</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSlider" name="slider_hombro">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
 
-          <item row="3" column="0">
-           <widget class="QLabel" name="label_muneca"><property name="text"><string>Muñeca</string></property></widget>
-          </item>
-          <item row="3" column="1">
-           <widget class="QSlider" name="slider_muneca">
-            <property name="orientation"><enum>Qt::Horizontal</enum></property>
-            <property name="minimum"><number>0</number></property>
-            <property name="maximum"><number>180</number></property>
-           </widget>
-          </item>
+      <item>
+       <widget class="QLabel" name="label_codo">
+        <property name="text">
+         <string>Codo</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSlider" name="slider_codo">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
 
-          <item row="4" column="0">
-           <widget class="QLabel" name="label_pinza"><property name="text"><string>Pinza (manual)</string></property></widget>
-          </item>
-          <item row="4" column="1">
-           <widget class="QSlider" name="slider_pinza">
-            <property name="orientation"><enum>Qt::Horizontal</enum></property>
-            <property name="minimum"><number>0</number></property>
-            <property name="maximum"><number>180</number></property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
+      <item>
+       <widget class="QLabel" name="label_muneca">
+        <property name="text">
+         <string>Muñeca</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSlider" name="slider_muneca">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
 
-       <item>
-        <widget class="QGroupBox" name="group_actuador">
-         <property name="title"><string>Actuador Final</string></property>
-         <layout class="QHBoxLayout" name="horizontalLayout">
-          <item>
-           <widget class="QPushButton" name="btn_pick"><property name="text"><string>Pick (Cerrar)</string></property></widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="btn_place"><property name="text"><string>Place (Abrir)</string></property></widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
+      <item>
+       <widget class="QLabel" name="label_pinza">
+        <property name="text">
+         <string>Pinza</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSlider" name="slider_pinza">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
 
-       <item>
-        <widget class="QGroupBox" name="group_angulos">
-         <property name="title"><string>Ángulos actuales</string></property>
-         <layout class="QFormLayout" name="formLayout_angles">
-          <item row="0" column="0"><widget class="QLabel" name="label_ang_base_title"><property name="text"><string>Base:</string></property></widget></item>
-          <item row="0" column="1"><widget class="QLabel" name="label_ang_base"><property name="text"><string>90°</string></property></widget></item>
+      <item>
+       <layout class="QHBoxLayout" name="layout_botones">
+        <item>
+         <widget class="QPushButton" name="btn_pick">
+          <property name="text">
+           <string>Pick</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_place">
+          <property name="text">
+           <string>Place</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
 
-          <item row="1" column="0"><widget class="QLabel" name="label_ang_hombro_title"><property name="text"><string>Hombro:</string></property></widget></item>
-          <item row="1" column="1"><widget class="QLabel" name="label_ang_hombro"><property name="text"><string>90°</string></property></widget></item>
+      <item>
+       <widget class="QLabel" name="label_angulos">
+        <property name="text">
+         <string><b>Ángulos actuales</b></string>
+        </property>
+       </widget>
+      </item>
 
-          <item row="2" column="0"><widget class="QLabel" name="label_ang_codo_title"><property name="text"><string>Codo:</string></property></widget></item>
-          <item row="2" column="1"><widget class="QLabel" name="label_ang_codo"><property name="text"><string>90°</string></property></widget></item>
+      <item>
+       <widget class="QPlainTextEdit" name="txt_angulos">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
 
-          <item row="3" column="0"><widget class="QLabel" name="label_ang_muneca_title"><property name="text"><string>Muñeca:</string></property></widget></item>
-          <item row="3" column="1"><widget class="QLabel" name="label_ang_muneca"><property name="text"><string>90°</string></property></widget></item>
-
-          <item row="4" column="0"><widget class="QLabel" name="label_ang_pinza_title"><property name="text"><string>Pinza:</string></property></widget></item>
-          <item row="4" column="1"><widget class="QLabel" name="label_ang_pinza"><property name="text"><string>90°</string></property></widget></item>
-         </layout>
-        </widget>
-       </item>
-
-       <item>
-        <spacer name="verticalSpacer">
-         <property name="orientation"><enum>Qt::Vertical</enum></property>
-        </spacer>
-       </item>
-      </layout>
-     </widget>
+     </layout>
     </item>
 
-    <!-- Panel derecho: simulación -->
     <item>
-     <widget class="QWidget" name="right_panel">
-      <layout class="QVBoxLayout" name="verticalLayout_right">
-       <item>
-        <widget class="QGroupBox" name="group_sim">
-         <property name="title"><string>Simulación</string></property>
-         <layout class="QVBoxLayout" name="verticalLayout_sim">
-          <!-- Aquí insertaremos el canvas matplotlib -->
-          <item>
-           <widget class="QFrame" name="sim_frame">
-            <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
-            <property name="minimumSize"><size><width>520</width><height>480</height></size></property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-      </layout>
-     </widget>
+     <layout class="QVBoxLayout" name="layout_sim">
+      <item>
+       <widget class="QLabel" name="label_sim">
+        <property name="text">
+         <string><b>Simulación 3D</b></string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
 
    </layout>
