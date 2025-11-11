@@ -1,107 +1,126 @@
 import sys
-import math
+import os
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QSlider, QPushButton,
-    QWidget, QLabel, QHBoxLayout, QMessageBox
+    QWidget, QLabel, QHBoxLayout
 )
 from PyQt5.QtCore import Qt, QTimer
 from robot import Robot
-from sensor import Ultrasonico  # Sensor de distancia
+from sensor import Ultrasonico
+
+# ------------------------------
+# Forzar X11 en Raspberry Pi
+# ------------------------------
+os.environ["QT_QPA_PLATFORM"] = "xcb"
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Control del Robot - Sin Simulaci�n")
+        self.setWindowTitle("Control del Robot - Doble Sensor")
         self.setGeometry(200, 100, 600, 400)
 
-        # --- Inicializar clases principales ---
+        # Robot y sensores
         self.robot = Robot()
-        self.sensor = Ultrasonico()
-        self.objeto_detectado = False  # Estado del sensor
+        self.sensores = Ultrasonico()
+        self.detener = False
+        self.modo_lento = False
 
-        # --- Layout principal ---
-        layout_principal = QVBoxLayout()
-
-        # --- Sliders (4 articulaciones) ---
+        # Layout principal
+        layout = QVBoxLayout()
         self.sliders = []
         self.labels = []
-        nombres = ["Base", "Hombro", "Codo", "Mu�eca"]
 
+        nombres = ["Base", "Hombro", "Codo", "Muñeca"]
         for nombre in nombres:
             fila = QHBoxLayout()
-            label = QLabel(f"{nombre}: 0�")
+            label = QLabel(f"{nombre}: 0°")
             slider = QSlider(Qt.Horizontal)
             slider.setRange(0, 180)
             slider.setValue(0)
             slider.valueChanged.connect(self.actualizar_robot)
             fila.addWidget(label)
             fila.addWidget(slider)
-            layout_principal.addLayout(fila)
+            layout.addLayout(fila)
             self.labels.append(label)
             self.sliders.append(slider)
 
-        # --- Botones de pinza ---
+        # Botones pinza
         botones = QHBoxLayout()
-        btn_abrir = QPushButton("Abrir (Place)")
-        btn_cerrar = QPushButton("Cerrar (Pick)")
-        btn_abrir.clicked.connect(self.robot.place)
-        btn_cerrar.clicked.connect(self.robot.pick)
-        botones.addWidget(btn_abrir)
-        botones.addWidget(btn_cerrar)
-        layout_principal.addLayout(botones)
+        btn_pick = QPushButton("Pick")
+        btn_place = QPushButton("Place")
+        btn_pick.clicked.connect(self.robot.pick)
+        btn_place.clicked.connect(self.robot.place)
+        botones.addWidget(btn_pick)
+        botones.addWidget(btn_place)
+        layout.addLayout(botones)
 
-        # --- Estado ---
-        self.status_label = QLabel("Distancia: -- cm | Estado: Normal")
-        layout_principal.addWidget(self.status_label)
+        # Estado sensores
+        self.estado_label = QLabel("Distancias: -- cm | Estado: Normal")
+        layout.addWidget(self.estado_label)
 
-        # --- Widget principal ---
+        # Widget central
         widget = QWidget()
-        widget.setLayout(layout_principal)
+        widget.setLayout(layout)
         self.setCentralWidget(widget)
 
-        # --- Temporizador del sensor ---
+        # Timer sensores
         self.timer = QTimer()
-        self.timer.timeout.connect(self.verificar_distancia)
+        self.timer.timeout.connect(self.verificar_sensores)
         self.timer.start(100)  # cada 100 ms
 
-        self.actualizar_robot()
+        # Inicializar robot en cero sin retraso extra
+        self.actualizar_robot(initial=True)
 
-    def verificar_distancia(self):
-        """Lee el sensor ultras�nico cada 100 ms"""
-        try:
-            dist = self.sensor.medir_distancia()
-            self.status_label.setText(f"Distancia: {dist} cm")
+    # ---------------------------------
+    # Lectura sensores
+    # ---------------------------------
+    def verificar_sensores(self):
+        dist1 = self.sensores.medir_distancia_principal()
+        dist2 = self.sensores.medir_distancia_secundario()
+        estado = "Normal"
 
-            if dist < 10 and not self.objeto_detectado:
-                self.objeto_detectado = True
-                self.status_label.setText(f"Distancia: {dist} cm | ?? Objeto detectado � Robot detenido")
-                QMessageBox.warning(self, "Alerta", "Objeto detectado a menos de 10 cm. Robot detenido.")
-            elif dist >= 10 and self.objeto_detectado:
-                self.objeto_detectado = False
-                self.status_label.setText(f"Distancia: {dist} cm | ? Objeto despejado, robot activo.")
-        except Exception as e:
-            print("Error leyendo el sensor:", e)
+        # Sensor principal: detener < 10cm
+        if dist1 < 10:
+            self.detener = True
+            estado = "🚫 Detenido (objeto cercano)"
+        else:
+            self.detener = False
 
-    def actualizar_robot(self):
-        """Actualiza los �ngulos de los servos f�sicos"""
-        if self.objeto_detectado:
-            # Si hay un objeto, no mover servos
+        # Sensor secundario: lento < 5cm
+        if dist2 < 5:
+            self.modo_lento = True
+            if estado == "Normal":
+                estado = "🐢 Modo lento"
+        else:
+            self.modo_lento = False
+
+        self.estado_label.setText(
+            f"Distancia1: {dist1:.1f} cm | Distancia2: {dist2:.1f} cm | Estado: {estado}"
+        )
+
+    # ---------------------------------
+    # Actualizar robot según sliders
+    # ---------------------------------
+    def actualizar_robot(self, initial=False):
+        if self.detener and not initial:
             return
 
         angulos = [s.value() for s in self.sliders]
-        nombres = ["Base", "Hombro", "Codo", "Mu�eca"]
         for i, label in enumerate(self.labels):
-            label.setText(f"{nombres[i]}: {angulos[i]}�")
+            label.setText(f"{['Base','Hombro','Codo','Muñeca'][i]}: {angulos[i]}°")
 
-        base, hombro, codo, muneca = angulos
-        self.robot.mover_servos(base, hombro)   # hombro mueve los 2 servos sincronizados
-        self.robot.mover_codo(codo)
-        self.robot.mover_muneca(muneca)
+        # Ajustar velocidad
+        self.robot.velocidad = 0.15 if self.modo_lento else 0.05
+
+        # Mover servos físicos
+        self.robot.mover_servos(angulos[0], angulos[1])
+        self.robot.mover_codo(angulos[2])
+        self.robot.mover_muneca(angulos[3])
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
+    ventana = MainWindow()
+    ventana.show()
     sys.exit(app.exec_())
