@@ -1,129 +1,114 @@
 import sys
+import math
 import numpy as np
-from PyQt5 import uic, QtWidgets
-from PyQt5.QtWidgets import QApplication, QMainWindow
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-import matplotlib.pyplot as plt
+from PyQt5 import QtWidgets, QtCore
+from robot import Robot
 from roboticstoolbox import DHRobot, RevoluteDH
-from spatialmath import SE3
-from robot import Robot  # Control físico de los servos
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 
-# Clase principal de la interfaz
-class MainWindow(QMainWindow):
+
+class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
-        super(MainWindow, self).__init__()
-        uic.loadUi("interface.ui", self)
+        super().__init__()
+        self.setWindowTitle("Control del Robot 2R - Simulación y Control Físico")
 
-        # Crear figura 3D en el widget
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111, projection="3d")
+        # --- Instancia del robot físico ---
+        self.robot = Robot()
+
+        # --- Simulación 3D con Peter Corke ---
+        L1 = 10
+        L2 = 10
+        self.robot_model = DHRobot([
+            RevoluteDH(a=L1, alpha=0, d=0, offset=0),
+            RevoluteDH(a=L2, alpha=0, d=0, offset=0)
+        ], name='Robot 2R')
+
+        # --- Configuración de interfaz ---
+        central_widget = QtWidgets.QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QtWidgets.QHBoxLayout()
+        central_widget.setLayout(main_layout)
+
+        # --- Panel de controles ---
+        control_layout = QtWidgets.QVBoxLayout()
+
+        self.slider1 = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.slider2 = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.slider1.setRange(0, 180)
+        self.slider2.setRange(0, 180)
+
+        self.slider1.setValue(0)
+        self.slider2.setValue(0)
+
+        self.label1 = QtWidgets.QLabel("Articulación 1: 0°")
+        self.label2 = QtWidgets.QLabel("Articulación 2: 0°")
+
+        control_layout.addWidget(self.label1)
+        control_layout.addWidget(self.slider1)
+        control_layout.addWidget(self.label2)
+        control_layout.addWidget(self.slider2)
+
+        # --- Botón para actualizar simulación ---
+        self.btn_actualizar = QtWidgets.QPushButton("Actualizar Simulación")
+        control_layout.addWidget(self.btn_actualizar)
+
+        # --- Área de texto para mostrar ángulos ---
+        self.text_output = QtWidgets.QTextEdit()
+        self.text_output.setReadOnly(True)
+        control_layout.addWidget(QtWidgets.QLabel("Lectura de ángulos:"))
+        control_layout.addWidget(self.text_output)
+
+        main_layout.addLayout(control_layout)
+
+        # --- Simulación (canvas 3D) ---
+        self.fig = Figure(figsize=(5, 4))
         self.canvas = FigureCanvas(self.fig)
-        self.layout_sim.addWidget(self.canvas)
+        main_layout.addWidget(self.canvas)
 
-        # Crear el robot físico
-        self.robot_fisico = Robot()
+        # --- Eventos ---
+        self.slider1.valueChanged.connect(self.mover_robot)
+        self.slider2.valueChanged.connect(self.mover_robot)
+        self.btn_actualizar.clicked.connect(self.actualizar_simulacion)
 
-        # Crear el modelo cinemático (Peter Corke)
-        self.robot_model = DHRobot(
-            [
-                RevoluteDH(a=0.05, alpha=np.pi / 2, d=0),
-                RevoluteDH(a=0.15, alpha=0, d=0),
-                RevoluteDH(a=0.15, alpha=0, d=0),
-                RevoluteDH(a=0.10, alpha=0, d=0),
-                RevoluteDH(a=0.10, alpha=0, d=0),
-                RevoluteDH(a=0.05, alpha=0, d=0),
-            ],
-            name="Brazo_Robotico"
-        )
-
-        # Inicializar todos los ángulos en 0°
-        self.angles = [0, 0, 0, 0, 0, 0]
-
-        # Configurar sliders para cada articulación
-        self.slider_base.setMinimum(0)
-        self.slider_base.setMaximum(180)
-        self.slider_base.setValue(0)
-
-        self.slider_hombro.setMinimum(0)
-        self.slider_hombro.setMaximum(180)
-        self.slider_hombro.setValue(0)
-
-        self.slider_codo.setMinimum(0)
-        self.slider_codo.setMaximum(180)
-        self.slider_codo.setValue(0)
-
-        self.slider_muneca.setMinimum(0)
-        self.slider_muneca.setMaximum(180)
-        self.slider_muneca.setValue(0)
-
-        # El control del actuador (pinza)
-        self.slider_pinza.setMinimum(0)
-        self.slider_pinza.setMaximum(180)
-        self.slider_pinza.setValue(0)
-
-        # Conexión de sliders
-        self.slider_base.valueChanged.connect(lambda v: self.actualizar_servo(0, v))
-        self.slider_hombro.valueChanged.connect(lambda v: self.actualizar_servo(1, v))
-        self.slider_codo.valueChanged.connect(lambda v: self.actualizar_servo(2, v))
-        self.slider_muneca.valueChanged.connect(lambda v: self.actualizar_servo(3, v))
-        self.slider_pinza.valueChanged.connect(lambda v: self.actualizar_servo(4, v))
-
-        # Conexión de botones Pick y Place
-        self.btn_pick.clicked.connect(self.pick)
-        self.btn_place.clicked.connect(self.place)
-
-        # Mostrar la posición inicial del robot
+        # --- Inicializar simulación ---
         self.actualizar_simulacion()
-        self.mostrar_angulos()
 
-    # Función que actualiza servos y simulación
-    def actualizar_servo(self, indice, valor):
-        # Actualizar ángulo interno
-        self.angles[indice] = valor
-        print(f"Servo {indice+1}: {valor}°")
+    def mover_robot(self):
+        ang1 = self.slider1.value()
+        ang2 = self.slider2.value()
 
-        # Actualizar robot físico
-        self.robot_fisico.mover_servo(indice, valor)
+        self.label1.setText(f"Articulación 1: {ang1}°")
+        self.label2.setText(f"Articulación 2: {ang2}°")
 
-        # Actualizar simulación 3D
+        # Mueve los servos reales
+        self.robot.mover_servos(ang1, ang2)
+
+        # Actualiza texto en GUI
+        self.text_output.append(f"Art1: {ang1}°, Art2: {ang2}°")
+
+        # Actualiza la simulación 3D
         self.actualizar_simulacion()
-        self.mostrar_angulos()
 
-    # Botón Pick (cerrar pinza)
-    def pick(self):
-        self.angles[5] = 0  # Servo 6 (pinza)
-        self.robot_fisico.pick()
-        self.actualizar_simulacion()
-        self.mostrar_angulos()
-
-    # Botón Place (abrir pinza)
-    def place(self):
-        self.angles[5] = 180  # Servo 6 (pinza)
-        self.robot_fisico.place()
-        self.actualizar_simulacion()
-        self.mostrar_angulos()
-
-    # Actualizar simulación 3D con los ángulos actuales
     def actualizar_simulacion(self):
-        q_rad = [np.deg2rad(a) for a in self.angles]
-        self.ax.cla()  # Limpiar figura
-        self.robot_model.plot(q_rad, block=False, ax=self.ax)
-        self.ax.set_xlim(-0.5, 0.5)
-        self.ax.set_ylim(-0.5, 0.5)
-        self.ax.set_zlim(0, 0.5)
-        self.ax.set_title("Simulación Brazo Robótico (0° Inicial)")
-        self.canvas.draw()
+        ang1 = self.slider1.value()
+        ang2 = self.slider2.value()
+        q_rad = [math.radians(ang1), math.radians(ang2)]
 
-    # Mostrar ángulos en cuadro de texto
-    def mostrar_angulos(self):
-        texto = "\n".join(
-            [f"Servo {i+1}: {a}°" for i, a in enumerate(self.angles)]
-        )
-        self.txt_angulos.setPlainText(texto)
+        # Limpiar figura anterior
+        self.fig.clear()
+
+        # Crear nuevo subplot 3D
+        ax = self.fig.add_subplot(111, projection='3d')
+        ax.set_title("Simulación Robot 2R")
+
+        # Dibujar robot en el entorno de Peter Corke
+        self.robot_model.plot(q_rad, block=False)
+        self.canvas.draw_idle()
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
