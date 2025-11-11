@@ -1,14 +1,8 @@
-from adafruit_servokit import ServoKit
-import time
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # Importa el m�dulo 3D
 
-kit = ServoKit(channels=16)
-ch = 0
-try:
-    while True:
-        kit.servo[ch].angle = 0
-        time.sleep(1)
-        kit.servo[ch].angle = 180
-        time.sleep(1)
-except KeyboardInterrupt:
-    kit.servo[ch].angle = 90
-    print("Stopped")
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+ax.plot([0, 1], [0, 1], [0, 1])
+plt.show()
