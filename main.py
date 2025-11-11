@@ -14,14 +14,14 @@ from robot import Robot
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Control del Brazo Robótico - Raspberry Pi 4")
-        self.setGeometry(200, 100, 1000, 700)
+        self.setWindowTitle("Control del Brazo Robótico - Simulación 2D (Raspberry Pi 4)")
+        self.setGeometry(200, 100, 900, 600)
 
         # --- Layout principal ---
         layout_principal = QVBoxLayout()
         self.setLayout(layout_principal)
 
-        # --- Layout superior (sliders + botones) ---
+        # --- Layout superior (sliders y botones) ---
         layout_superior = QHBoxLayout()
         layout_principal.addLayout(layout_superior)
 
@@ -31,7 +31,7 @@ class MainWindow(QWidget):
 
         self.robot = Robot()
 
-        # Diccionario para almacenar sliders y etiquetas
+        # Diccionarios para sliders y etiquetas
         self.sliders = {}
         self.etiquetas = {}
 
@@ -54,7 +54,7 @@ class MainWindow(QWidget):
             fila.addWidget(slider)
             layout_sliders.addLayout(fila)
 
-        # --- Botones para pinza ---
+        # --- Botones de pinza ---
         layout_botones = QHBoxLayout()
         self.btn_abrir = QPushButton("Abrir Pinza")
         self.btn_cerrar = QPushButton("Cerrar Pinza")
@@ -64,24 +64,25 @@ class MainWindow(QWidget):
         layout_botones.addWidget(self.btn_cerrar)
         layout_sliders.addLayout(layout_botones)
 
-        # --- Simulación 3D ---
+        # --- Área de simulación (2D) ---
         self.fig = Figure(figsize=(6, 4))
         self.canvas = FigureCanvas(self.fig)
         layout_principal.addWidget(self.canvas)
-        self.ax = self.fig.add_subplot(111, projection='3d')
+        self.ax = self.fig.add_subplot(111)
+        self.ax.set_aspect('equal', adjustable='datalim')
 
-        # --- Modelo del robot en Peter Corke ---
-        L1 = RevoluteDH(a=0, d=0.1, alpha=np.pi / 2)
+        # --- Modelo DH del robot (simplificado) ---
+        L1 = RevoluteDH(a=0.1, d=0, alpha=0)
         L2 = RevoluteDH(a=0.1, d=0, alpha=0)
-        L3 = RevoluteDH(a=0.1, d=0, alpha=0)
-        L4 = RevoluteDH(a=0.05, d=0, alpha=0)
-        self.robot_model = DHRobot([L1, L2, L3, L4], name="Brazo_6DOF")
+        L3 = RevoluteDH(a=0.08, d=0, alpha=0)
+        L4 = RevoluteDH(a=0.06, d=0, alpha=0)
+        self.robot_model = DHRobot([L1, L2, L3, L4], name="Brazo_2D")
 
         # Estado inicial
         self.actualizar_robot()
 
     def actualizar_robot(self):
-        # Leer los ángulos desde los sliders
+        """Lee sliders, actualiza servos físicos y simulación."""
         ang_base = self.sliders["base"].value()
         ang_hombro = self.sliders["hombro"].value()
         ang_codo = self.sliders["codo"].value()
@@ -100,8 +101,8 @@ class MainWindow(QWidget):
         self.robot.mover_servo(3, ang_codo)      # Codo
         self.robot.mover_servo(4, ang_muneca)    # Muñeca
 
-        # Actualizar simulación visual
-        self.actualizar_simulacion(ang_base, ang_hombro, ang_codo, ang_muneca)
+        # Actualizar simulación 2D
+        self.actualizar_simulacion_2d(ang_base, ang_hombro, ang_codo, ang_muneca)
 
     def abrir_pinza(self):
         self.robot.mover_servo(5, 0)
@@ -109,30 +110,28 @@ class MainWindow(QWidget):
     def cerrar_pinza(self):
         self.robot.mover_servo(5, 90)
 
-    def actualizar_simulacion(self, base, hombro, codo, muneca):
-        """Dibuja el modelo del robot manualmente en el canvas"""
+    def actualizar_simulacion_2d(self, base, hombro, codo, muneca):
+        """Dibuja la simulación 2D del brazo."""
+        # Convertir a radianes
         q_rad = np.radians([base, hombro, codo, muneca])
         T = self.robot_model.fkine_all(q_rad)
 
-        # Extraer puntos de cada articulación
+        # Extraer puntos del plano XY
         xs = [0]
         ys = [0]
-        zs = [0]
         for i in range(len(T)):
             xs.append(T[i].t[0])
-            ys.append(T[i].t[1])
-            zs.append(T[i].t[2])
+            ys.append(T[i].t[2])  # usamos Z como Y en 2D
 
-        # Dibujar
+        # Dibujar brazo
         self.ax.clear()
-        self.ax.plot(xs, ys, zs, '-o', linewidth=3, markersize=8)
+        self.ax.plot(xs, ys, '-o', linewidth=3, markersize=6)
         self.ax.set_xlim([-0.3, 0.3])
-        self.ax.set_ylim([-0.3, 0.3])
-        self.ax.set_zlim([0, 0.4])
-        self.ax.set_title("Simulación 3D del Brazo Robótico")
-        self.ax.set_xlabel("X")
-        self.ax.set_ylabel("Y")
-        self.ax.set_zlabel("Z")
+        self.ax.set_ylim([0, 0.3])
+        self.ax.set_title("Simulación 2D del Brazo Robótico")
+        self.ax.set_xlabel("X (m)")
+        self.ax.set_ylabel("Y (m)")
+        self.ax.grid(True)
         self.canvas.draw()
 
 
