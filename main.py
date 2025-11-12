@@ -1,83 +1,69 @@
-import sys
-import threading
-from PyQt5 import QtWidgets, uic, QtCore
+from PyQt5 import QtWidgets, QtCore
 from control import ServoController
 from robot import SimuladorRobot
+import sys
 
-
-class MainWindow(QtWidgets.QMainWindow):
+class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        uic.loadUi("interface.ui", self)
+        self.setWindowTitle("Control del Robot 4R")
+        self.resize(600, 400)
 
-        self.servo_ctrl = ServoController()
         self.simulador = SimuladorRobot()
+        self.servo_ctrl = ServoController()
 
-        # --- Conectar sliders ---
-        for slider in [self.slider_q1, self.slider_q2, self.slider_q3, self.slider_q4]:
-            slider.valueChanged.connect(self.on_slider_change)
-            slider.sliderReleased.connect(self.actualizar_robot)
+        # Layout principal
+        layout = QtWidgets.QVBoxLayout()
 
-        # --- Timer para control suave ---
-        self.update_timer = QtCore.QTimer()
-        self.update_timer.setInterval(200)  # 5 fps máximo
-        self.update_timer.timeout.connect(self.actualizar_robot)
-        self.update_timer_active = False
+        # Sliders y etiquetas
+        self.sliders = []
+        self.labels = []
 
-        # --- Botones ---
-        self.btn_pick.clicked.connect(self.pick)
-        self.btn_place.clicked.connect(self.place)
+        nombres = ["Base", "Hombro", "Codo", "Muñeca"]
 
-        # Últimos ángulos
-        self.angulos_previos = [0, 0, 0, 0]
+        for i, nombre in enumerate(nombres):
+            box = QtWidgets.QHBoxLayout()
+            label = QtWidgets.QLabel(f"{nombre}: 90°")
+            slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+            slider.setMinimum(0)
+            slider.setMaximum(180)
+            slider.setValue(90)
+            slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+            slider.setTickInterval(10)
 
-    def obtener_angulos(self):
-        return [
-            self.slider_q1.value(),
-            self.slider_q2.value(),
-            self.slider_q3.value(),
-            self.slider_q4.value()
-        ]
+            # Cuando se mueve el slider, actualizar ángulo y GUI
+            slider.valueChanged.connect(lambda value, idx=i: self.actualizar_angulo(idx, value))
 
-    def on_slider_change(self):
-        """Evita saturar CPU mientras se arrastra el slider"""
-        if not self.update_timer_active:
-            self.update_timer.start()
-            self.update_timer_active = True
+            box.addWidget(label)
+            box.addWidget(slider)
 
-    def actualizar_robot(self):
-        """Actualiza servos y simulador sin sobrecargar CPU"""
-        angulos = self.obtener_angulos()
+            layout.addLayout(box)
+            self.labels.append(label)
+            self.sliders.append(slider)
 
-        # Evita actualizaciones redundantes
-        if angulos == self.angulos_previos:
-            return
-        self.angulos_previos = angulos
+        # Botones de pinza
+        botones = QtWidgets.QHBoxLayout()
+        btn_pick = QtWidgets.QPushButton("Pick (Cerrar)")
+        btn_place = QtWidgets.QPushButton("Place (Abrir)")
+        btn_pick.clicked.connect(self.servo_ctrl.pick)
+        btn_place.clicked.connect(self.servo_ctrl.place)
+        botones.addWidget(btn_pick)
+        botones.addWidget(btn_place)
+        layout.addLayout(botones)
 
-        # Actualiza los servos en un hilo (para no congelar GUI)
-        threading.Thread(target=self.mover_servos, args=(angulos,), daemon=True).start()
+        self.setLayout(layout)
 
-        # Actualiza la simulación (menos frecuente)
+    def actualizar_angulo(self, idx, valor):
+        """Actualiza la GUI, simulador y servo físico"""
+        # 1️⃣ Actualiza la etiqueta del ángulo
+        self.labels[idx].setText(f"{['Base', 'Hombro', 'Codo', 'Muñeca'][idx]}: {valor}°")
+
+        # 2️⃣ Actualiza la simulación
+        angulos = [s.value() for s in self.sliders]
         self.simulador.actualizar(angulos)
 
-        # Detiene el timer si no hay más movimiento
-        self.update_timer.stop()
-        self.update_timer_active = False
-
-    def mover_servos(self, angulos):
-        """Controla servos sin bloquear interfaz"""
-        try:
-            for i, ang in enumerate(angulos):
-                self.servo_ctrl.set_angle(i, ang)
-        except Exception as e:
-            print(f"⚠️ Error moviendo servos: {e}")
-
-    def pick(self):
-        threading.Thread(target=self.servo_ctrl.pick, daemon=True).start()
-
-    def place(self):
-        threading.Thread(target=self.servo_ctrl.place, daemon=True).start()
-
+        # 3️⃣ Envía valor al servo correspondiente
+        self.servo_ctrl.set_angle(idx, valor)
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
