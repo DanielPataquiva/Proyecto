@@ -1,12 +1,11 @@
 import sys
 import numpy as np
 import math
-import time
 from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel
 from PyQt5.QtCore import Qt, QTimer
 from adafruit_servokit import ServoKit
 from roboticstoolbox import DHRobot, RevoluteDH
-import threading
+import matplotlib.pyplot as plt
 
 # ==============================
 # CONFIGURACIÓN PCA9685 Y SERVOS
@@ -14,11 +13,9 @@ import threading
 
 kit = ServoKit(channels=16)
 
-# Ajustar rango de pulsos PWM
 for ch in range(5):
     kit.servo[ch].set_pulse_width_range(500, 2500)
 
-# Configuración de cada servo
 servo_config = {
     0: {"offset": 0,  "invert": False},   # Articulación 1
     1: {"offset": 0,  "invert": False},   # Articulación 2 (servo A)
@@ -27,7 +24,6 @@ servo_config = {
     4: {"offset": 0,  "invert": False},   # Articulación 4
 }
 
-# Longitudes DH
 L1, L2, L3 = 5, 5, 5
 
 
@@ -43,11 +39,15 @@ links = [
 ]
 robot = DHRobot(links, name="Robot_4R")
 
-# Crear ventana de simulación en un hilo aparte (para no bloquear PyQt)
-def sim_loop():
-    robot.teach([0, 0, 0, 0], "rpy/zyx", limits=[-20, 20, -20, 20, 0, 25])
-
-threading.Thread(target=sim_loop, daemon=True).start()
+# Creamos una figura estática (una sola ventana de simulación)
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.set_xlim(-20, 20)
+ax.set_ylim(-20, 20)
+ax.set_zlim(0, 25)
+ax.view_init(elev=30, azim=45)
+plt.ion()
+plt.show()
 
 
 # ==============================
@@ -75,16 +75,15 @@ def forward_kinematics(theta1, theta2, theta3, theta4):
 
 
 # ==============================
-# INTERFAZ GRÁFICA
+# INTERFAZ GRÁFICA (PyQt5)
 # ==============================
 
 class ServoControl(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
-        self.angles = [90, 90, 90, 90]  # valores iniciales
+        self.angles = [0, 0, 0, 0]  # ahora inicia en 0°
 
-        # Actualizador de simulación (cada 100 ms)
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_simulation)
         self.timer.start(100)
@@ -95,11 +94,11 @@ class ServoControl(QWidget):
         self.sliders = []
 
         for i in range(4):
-            lbl = QLabel(f"Articulación {i+1}: 90°", self)
+            lbl = QLabel(f"Articulación {i+1}: 0°", self)
             sld = QSlider(Qt.Horizontal, self)
             sld.setMinimum(0)
             sld.setMaximum(180)
-            sld.setValue(90)
+            sld.setValue(0)  # inicia en 0°
             sld.valueChanged.connect(lambda val, idx=i: self.move_servo(idx, val))
             layout.addWidget(lbl)
             layout.addWidget(sld)
@@ -127,10 +126,8 @@ class ServoControl(QWidget):
         elif index == 3:
             self.set_servo_angle(4, angle)
 
-        # Actualiza etiquetas
         self.labels[index].setText(f"Articulación {index+1}: {angle}°")
 
-        # Calcula posición
         pos = forward_kinematics(*self.angles)
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
 
@@ -147,10 +144,21 @@ class ServoControl(QWidget):
         kit.servo[channel].angle = adj_angle
 
     def update_simulation(self):
-        """Actualiza la simulación 3D del robot"""
-        q_rad = np.deg2rad(np.array(self.angles) - 90)  # centra en 0° = posición neutra
-        robot.q = q_rad
-        robot.plot(q_rad, block=False)
+        """Actualiza la simulación 3D (sin mover el plano)"""
+        ax.cla()
+        ax.set_xlim(-20, 20)
+        ax.set_ylim(-20, 20)
+        ax.set_zlim(0, 25)
+        ax.view_init(elev=30, azim=45)
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+
+        # Convertir a radianes centrando en 0°
+        q_rad = np.deg2rad(self.angles)
+        robot.plot(q_rad, ax=ax, block=False, jointaxes=False, shadow=False)
+        fig.canvas.draw()
+        fig.canvas.flush_events()
 
 
 # ==============================
