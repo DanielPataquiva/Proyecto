@@ -1,127 +1,125 @@
 import sys
-import math
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QSlider, QPushButton,
-    QWidget, QLabel, QHBoxLayout, QMessageBox
-)
-from PyQt5.QtCore import Qt, QTimer
-from robot import Robot
+import numpy as np
+from PyQt5 import uic, QtWidgets
+from PyQt5.QtWidgets import QApplication, QMainWindow
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import matplotlib.pyplot as plt
+from roboticstoolbox import DHRobot, RevoluteDH
+from spatialmath import SE3
+from robot import Robot  # Control físico de los servos
 
-
-
+# Clase principal de la interfaz
 class MainWindow(QMainWindow):
     def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Control del Robot - Doble Sensor")
-        self.setGeometry(200, 100, 600, 400)
+        super(MainWindow, self).__init__()
+        uic.loadUi("interface.ui", self)
 
-        # --- Inicialización de componentes ---
-        self.robot = Robot()
-        #self.sensor_principal = Ultrasonico(trigger_pin=23, echo_pin=24)  # Ejemplo pines
-        #self.sensor_secundario = Ultrasonico(trigger_pin=17, echo_pin=27)  # Ejemplo pines
-        self.objeto_detectado = False
-        self.modo_lento = False
+        # Crear figura 3D en el widget
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111, projection="3d")
+        self.canvas = FigureCanvas(self.fig)
+        self.layout_sim.addWidget(self.canvas)
 
-        # --- Layout principal ---
-        layout_principal = QVBoxLayout()
+        # Crear el robot físico
+        self.robot_fisico = Robot()
 
-        # --- Sliders (4 articulaciones) ---
-        self.sliders = []
-        self.labels = []
-        nombres = ["Base", "Hombro", "Codo", "Muñeca"]
+        # Crear el modelo cinemático (Peter Corke)
+        self.robot_model = DHRobot(
+            [
+                RevoluteDH(a=0.05, alpha=np.pi / 2, d=0),
+                RevoluteDH(a=0.15, alpha=0, d=0),
+                RevoluteDH(a=0.15, alpha=0, d=0),
+                RevoluteDH(a=0.10, alpha=0, d=0),
+                RevoluteDH(a=0.10, alpha=0, d=0),
+                RevoluteDH(a=0.05, alpha=0, d=0),
+            ],
+            name="Brazo_Robotico"
+        )
 
-        for nombre in nombres:
-            fila = QHBoxLayout()
-            label = QLabel(f"{nombre}: 0°")
-            slider = QSlider(Qt.Horizontal)
-            slider.setRange(0, 180)
-            slider.setValue(0)
-            slider.valueChanged.connect(self.actualizar_robot)
-            fila.addWidget(label)
-            fila.addWidget(slider)
-            layout_principal.addLayout(fila)
-            self.labels.append(label)
-            self.sliders.append(slider)
+        # Inicializar todos los ángulos en 0°
+        self.angles = [0, 0, 0, 0, 0, 0]
 
-        # --- Botones de pinza ---
-        botones = QHBoxLayout()
-        btn_abrir = QPushButton("Abrir (Place)")
-        btn_cerrar = QPushButton("Cerrar (Pick)")
-        btn_abrir.clicked.connect(self.robot.place)
-        btn_cerrar.clicked.connect(self.robot.pick)
-        botones.addWidget(btn_abrir)
-        botones.addWidget(btn_cerrar)
-        layout_principal.addLayout(botones)
+        # Configurar sliders para cada articulación
+        self.slider_base.setMinimum(0)
+        self.slider_base.setMaximum(180)
+        self.slider_base.setValue(0)
 
-        # --- Estado ---
-        self.status_label = QLabel("Distancia 1: -- cm | Distancia 2: -- cm | Estado: Normal")
-        layout_principal.addWidget(self.status_label)
+        self.slider_hombro.setMinimum(0)
+        self.slider_hombro.setMaximum(180)
+        self.slider_hombro.setValue(0)
 
-        # --- Widget principal ---
-        widget = QWidget()
-        widget.setLayout(layout_principal)
-        self.setCentralWidget(widget)
+        self.slider_codo.setMinimum(0)
+        self.slider_codo.setMaximum(180)
+        self.slider_codo.setValue(0)
 
-        # --- Timer del sensor ---
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.verificar_sensores)
-        self.timer.start(100)  # cada 100 ms
+        self.slider_muneca.setMinimum(0)
+        self.slider_muneca.setMaximum(180)
+        self.slider_muneca.setValue(0)
 
-        self.actualizar_robot()
+        # El control del actuador (pinza)
+        self.slider_pinza.setMinimum(0)
+        self.slider_pinza.setMaximum(180)
+        self.slider_pinza.setValue(0)
 
-    def verificar_sensores(self):
-        """Verifica ambos sensores y ajusta el comportamiento del robot."""
-        try:
-            dist1 = self.sensor_principal.medir_distancia()
-            dist2 = self.sensor_secundario.medir_distancia()
+        # Conexión de sliders
+        self.slider_base.valueChanged.connect(lambda v: self.actualizar_servo(0, v))
+        self.slider_hombro.valueChanged.connect(lambda v: self.actualizar_servo(1, v))
+        self.slider_codo.valueChanged.connect(lambda v: self.actualizar_servo(2, v))
+        self.slider_muneca.valueChanged.connect(lambda v: self.actualizar_servo(3, v))
+        self.slider_pinza.valueChanged.connect(lambda v: self.actualizar_servo(4, v))
 
-            texto_estado = f"Distancia 1: {dist1:.1f} cm | Distancia 2: {dist2:.1f} cm"
+        # Conexión de botones Pick y Place
+        self.btn_pick.clicked.connect(self.pick)
+        self.btn_place.clicked.connect(self.place)
 
-            # --- Sensor principal (<10cm) -> detener robot ---
-            if dist1 < 10 and not self.objeto_detectado:
-                self.objeto_detectado = True
-                texto_estado += " | ⚠️ Objeto cercano (robot detenido)"
-                QMessageBox.warning(self, "Alerta", "Objeto detectado a menos de 10 cm. Robot detenido.")
-            elif dist1 >= 10 and self.objeto_detectado:
-                self.objeto_detectado = False
-                texto_estado += " | ✅ Objeto despejado"
+        # Mostrar la posición inicial del robot
+        self.actualizar_simulacion()
+        self.mostrar_angulos()
 
-            # --- Sensor secundario (<5cm) -> modo lento ---
-            if dist2 < 5 and not self.modo_lento:
-                self.modo_lento = True
-                texto_estado += " | 🕐 Modo lento activado"
-            elif dist2 >= 5 and self.modo_lento:
-                self.modo_lento = False
-                texto_estado += " | ⚡ Modo normal"
+    # Función que actualiza servos y simulación
+    def actualizar_servo(self, indice, valor):
+        # Actualizar ángulo interno
+        self.angles[indice] = valor
+        print(f"Servo {indice+1}: {valor}°")
 
-            self.status_label.setText(texto_estado)
+        # Actualizar robot físico
+        self.robot_fisico.mover_servo(indice, valor)
 
-        except Exception as e:
-            print("Error al leer sensores:", e)
+        # Actualizar simulación 3D
+        self.actualizar_simulacion()
+        self.mostrar_angulos()
 
-    def actualizar_robot(self):
-        """Actualiza el movimiento físico del robot"""
-        if self.objeto_detectado:
-            # Si el sensor principal detecta algo, no mover servos
-            return
+    # Botón Pick (cerrar pinza)
+    def pick(self):
+        self.angles[5] = 0  # Servo 6 (pinza)
+        self.robot_fisico.pick()
+        self.actualizar_simulacion()
+        self.mostrar_angulos()
 
-        angulos = [s.value() for s in self.sliders]
-        nombres = ["Base", "Hombro", "Codo", "Muñeca"]
+    # Botón Place (abrir pinza)
+    def place(self):
+        self.angles[5] = 180  # Servo 6 (pinza)
+        self.robot_fisico.place()
+        self.actualizar_simulacion()
+        self.mostrar_angulos()
 
-        for i, label in enumerate(self.labels):
-            label.setText(f"{nombres[i]}: {angulos[i]}°")
+    # Actualizar simulación 3D con los ángulos actuales
+    def actualizar_simulacion(self):
+        q_rad = [np.deg2rad(a) for a in self.angles]
+        self.ax.cla()  # Limpiar figura
+        self.robot_model.plot(q_rad, block=False, ax=self.ax)
+        self.ax.set_xlim(-0.5, 0.5)
+        self.ax.set_ylim(-0.5, 0.5)
+        self.ax.set_zlim(0, 0.5)
+        self.ax.set_title("Simulación Brazo Robótico (0° Inicial)")
+        self.canvas.draw()
 
-        base, hombro, codo, muneca = angulos
-
-        # --- Ajustar velocidad según el modo ---
-        if self.modo_lento:
-            self.robot.velocidad = 0.15  # más lento
-        else:
-            self.robot.velocidad = 0.05  # normal
-
-        self.robot.mover_servos(base, hombro)
-        self.robot.mover_codo(codo)
-        self.robot.mover_muneca(muneca)
+    # Mostrar ángulos en cuadro de texto
+    def mostrar_angulos(self):
+        texto = "\n".join(
+            [f"Servo {i+1}: {a}°" for i, a in enumerate(self.angles)]
+        )
+        self.txt_angulos.setPlainText(texto)
 
 
 if __name__ == "__main__":
