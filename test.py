@@ -4,31 +4,33 @@ from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel
 from PyQt5.QtCore import Qt
 from adafruit_servokit import ServoKit
 
-# =====================================
-# CONFIGURACIÓN PCA9685 Y CALIBRACIÓN
-# =====================================
+# ==============================
+# CONFIGURACIÓN PCA9685 Y SERVOS
+# ==============================
 
 kit = ServoKit(channels=16)
 
-# Configuración individual de servos
-# min_angle / max_angle: limitan físicamente el movimiento
-# offset: corrige el punto "cero" físico
-# invert: invierte dirección si el servo está montado al revés
+# Ajusta el rango de pulsos PWM para cada servo
+# (Esto da más recorrido físico)
+for ch in range(5):
+    kit.servo[ch].set_pulse_width_range(500, 2500)  # Ajusta si es necesario
+
+# Configuración de cada servo
 servo_config = {
-    0: {"min_angle": 5, "max_angle": 175, "offset": -10, "invert": False},   # Articulación 1
-    1: {"min_angle": 10, "max_angle": 170, "offset": 0,   "invert": False},   # Articulación 2 (servo A)
-    2: {"min_angle": 10, "max_angle": 170, "offset": 0,   "invert": True},    # Articulación 2 (servo B)
-    3: {"min_angle": 15, "max_angle": 165, "offset": 5,   "invert": False},   # Articulación 3
-    4: {"min_angle": 5,  "max_angle": 175, "offset": 0,   "invert": False},   # Articulación 4
+    0: {"offset": 0,  "invert": False},   # Articulación 1
+    1: {"offset": 0,  "invert": False},   # Articulación 2 (servo A)
+    2: {"offset": 0,  "invert": True},    # Articulación 2 (servo B)
+    3: {"offset": 0,  "invert": False},   # Articulación 3
+    4: {"offset": 0,  "invert": False},   # Articulación 4
 }
 
-# Longitudes del brazo (para DH)
+# Longitudes de eslabones (para DH)
 L1, L2, L3 = 5, 5, 5
 
 
-# =====================================
-# FUNCIONES DE CINEMÁTICA (DH)
-# =====================================
+# ==============================
+# FUNCIONES DE CINEMÁTICA
+# ==============================
 
 def dh_matrix(theta, d, a, alpha):
     theta = np.deg2rad(theta)
@@ -50,9 +52,9 @@ def forward_kinematics(theta1, theta2, theta3, theta4):
     return pos
 
 
-# =====================================
+# ==============================
 # INTERFAZ GRÁFICA
-# =====================================
+# ==============================
 
 class ServoControl(QWidget):
     def __init__(self):
@@ -80,58 +82,47 @@ class ServoControl(QWidget):
         layout.addWidget(self.pos_label)
 
         self.setLayout(layout)
-        self.setWindowTitle("Control de 5 Servos (PCA9685 + Calibración + DH)")
+        self.setWindowTitle("Control de 5 Servos (PCA9685 + DH + PWM ampliado)")
         self.setGeometry(200, 200, 400, 300)
 
     def move_servo(self, index, angle):
-        """Mueve los servos físicos y actualiza la cinemática"""
+        """Mueve los servos y actualiza la posición del brazo"""
 
         if index == 0:
             self.set_servo_angle(0, angle)
-
         elif index == 1:
-            # Articulación 2: dos servos sincronizados
+            # Articulación 2 tiene 2 servos sincronizados
             self.set_servo_angle(1, angle)
             self.set_servo_angle(2, angle)
-
         elif index == 2:
             self.set_servo_angle(3, angle)
-
         elif index == 3:
             self.set_servo_angle(4, angle)
 
-        # Actualiza la etiqueta
+        # Actualiza etiqueta
         self.labels[index].setText(f"Articulación {index+1}: {angle}°")
 
-        # Cinemática directa
+        # Calcula posición final
         angles = [s.value() for s in self.sliders]
         pos = forward_kinematics(*angles)
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
 
     def set_servo_angle(self, channel, angle):
-        """Aplica calibración y mueve el servo"""
+        """Mueve un servo aplicando offset e inversión"""
         cfg = servo_config[channel]
-        min_a, max_a = cfg["min_angle"], cfg["max_angle"]
         offset, invert = cfg["offset"], cfg["invert"]
 
-        # Aplica offset
         adj_angle = angle + offset
-
-        # Limita dentro del rango permitido
-        adj_angle = max(0, min(180, adj_angle))
-        mapped_angle = np.interp(adj_angle, [0, 180], [min_a, max_a])
-
-        # Inversión si está montado al revés
+        adj_angle = max(0, min(180, adj_angle))  # limitar
         if invert:
-            mapped_angle = max_a - (mapped_angle - min_a)
+            adj_angle = 180 - adj_angle
 
-        # Envía al servo
-        kit.servo[channel].angle = mapped_angle
+        kit.servo[channel].angle = adj_angle
 
 
-# =====================================
+# ==============================
 # PROGRAMA PRINCIPAL
-# =====================================
+# ==============================
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
