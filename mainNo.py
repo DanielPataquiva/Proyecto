@@ -10,11 +10,9 @@ from sensor import Ultrasonico
 
 os.environ["QT_QPA_PLATFORM"] = "xcb"
 
-# ==============================
-# Hilo para leer sensores
-# ==============================
+
 class SensorThread(QThread):
-    distancia_signal = pyqtSignal(float, float)  # principal, secundario
+    distancia_signal = pyqtSignal(float, float)  
 
     def __init__(self, sensor):
         super().__init__()
@@ -26,29 +24,27 @@ class SensorThread(QThread):
             d1 = self.sensor.medir_distancia_principal()
             d2 = self.sensor.medir_distancia_secundario()
             self.distancia_signal.emit(d1, d2)
-            self.msleep(100)  # cada 100 ms
+            self.msleep(100)
 
     def stop(self):
         self.running = False
         self.quit()
         self.wait()
 
-# ==============================
-# Ventana principal
-# ==============================
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Control Robot - 2 Sensores")
+        self.setWindowTitle("Modo Manual")
         self.setGeometry(200, 100, 600, 400)
 
-        # Robot y sensores
+        
         self.robot = Robot()
         self.sensor = Ultrasonico()
         self.detener = False
         self.ralentizar = False
 
-        # Layout principal
+       
         layout = QVBoxLayout()
         self.sliders = []
         self.labels = []
@@ -94,9 +90,7 @@ class MainWindow(QMainWindow):
         # Inicializar robot
         self.actualizar_robot(initial=True)
 
-    # ==============================
-    # Recibe señales de los sensores
-    # ==============================
+
     def actualizar_estado_sensores(self, d1, d2):
         estado = "Normal"
         self.detener = False
@@ -122,7 +116,7 @@ class MainWindow(QMainWindow):
 
         angulos = [s.value() for s in self.sliders]
         if self.ralentizar:
-            # Mover servos más lento, interpolando
+
             angulos = [a // 2 for a in angulos]
 
         for i, label in enumerate(self.labels):

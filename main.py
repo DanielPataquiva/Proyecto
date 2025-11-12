@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QTimer
 from robot import Robot
-from sensor import Ultrasonico
+
 
 
 class MainWindow(QMainWindow):
@@ -17,8 +17,8 @@ class MainWindow(QMainWindow):
 
         # --- Inicialización de componentes ---
         self.robot = Robot()
-        self.sensor_principal = Ultrasonico(trigger_pin=23, echo_pin=24)  # Ejemplo pines
-        self.sensor_secundario = Ultrasonico(trigger_pin=17, echo_pin=27)  # Ejemplo pines
+        #self.sensor_principal = Ultrasonico(trigger_pin=23, echo_pin=24)  # Ejemplo pines
+        #self.sensor_secundario = Ultrasonico(trigger_pin=17, echo_pin=27)  # Ejemplo pines
         self.objeto_detectado = False
         self.modo_lento = False
 
