@@ -136,6 +136,7 @@ class MainWindow(QMainWindow):
 
 # ==============================
 # Programa principal
+
 # ==============================
 if __name__ == "__main__":
     app = QApplication(sys.argv)
