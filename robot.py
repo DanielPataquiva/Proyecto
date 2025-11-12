@@ -1,34 +1,57 @@
-from roboticstoolbox import DHRobot, RevoluteDH
-from spatialmath.base import tr2rpy
 import numpy as np
-import matplotlib.pyplot as plt
+from spatialmath import SE3
+from spatialmath.base import tr2rpy
+from roboticstoolbox import DHRobot, RevoluteDH
+import roboticstoolbox as rtb
+
 
 class SimuladorRobot:
     def __init__(self):
-        l1 = l2 = l3 = l4 = 10
-        self.links = [
-            RevoluteDH(a=l1, alpha=0),
-            RevoluteDH(a=l2, alpha=0),
-            RevoluteDH(a=l3, alpha=0),
-            RevoluteDH(a=l4, alpha=0)
-        ]
-        self.robot = DHRobot(self.links, name='Bender_4R')
+        # Definición de parámetros DH (puedes ajustar según tu robot)
+        L1 = RevoluteDH(a=10, alpha=0, d=0, offset=0)
+        L2 = RevoluteDH(a=10, alpha=0, d=0, offset=0)
+        L3 = RevoluteDH(a=10, alpha=0, d=0, offset=0)
+        L4 = RevoluteDH(a=10, alpha=0, d=0, offset=0)
 
-        # Configuración inicial (ángulos en radianes)
+        # Crear el robot con los 4 eslabones
+        self.robot = DHRobot([L1, L2, L3, L4], name="Bender_4R")
+
+        # Posición inicial (todos los ángulos en 0)
         self.q = [0, 0, 0, 0]
 
-        print("\nSimuladorRobot listo ✅")
+        print("SimuladorRobot listo ✅")
         print(self.robot)
 
     def actualizar(self, angulos):
-        """Actualiza la simulación con nuevos ángulos (en grados)."""
-        self.q = np.deg2rad(angulos)  # Convertir a radianes
+        """
+        Actualiza la simulación con los nuevos ángulos del robot.
+        angulos: lista de 4 valores (en grados)
+        """
+        # Convertir grados a radianes
+        self.q = np.radians(angulos)
+
+        # Calcular la cinemática directa
         MTH = self.robot.fkine(self.q)
         print("\nNueva posición simulada:")
-        print(MTH)
-       # print(f"Roll, Pitch, Yaw = {np.round(tr2rpy(MTH.R, 'zyx', 'deg'), 2)}")
-        print(f"Roll, Pitch, Yaw = {np.round(tr2rpy(MTH.R, unit='deg', order='zyx'), 2)}")
+        print(np.round(MTH.A, 4))
 
-        # Dibujar 2D simple
-        self.robot.plot(self.q, block=False, limits=[-40, 40, -10, 40])
-        plt.pause(0.01)
+        # Calcular e imprimir orientación RPY (orden zyx)
+        try:
+            rpy = tr2rpy(MTH.R, order='zyx', unit='deg')
+            print(f"Roll, Pitch, Yaw = {np.round(rpy, 2)}")
+        except Exception as e:
+            print(f"⚠️ Error calculando RPY: {e}")
+
+        # Actualizar la visualización 3D del robot
+        try:
+            # Límites corregidos: [xmin, xmax, ymin, ymax, zmin, zmax]
+            self.robot.plot(
+                self.q,
+                block=False,
+                limits=[-40, 40, -10, 40, 0, 50],
+                jointaxes=False,
+                eeframe=True,
+                shadow=True
+            )
+        except Exception as e:
+            print(f"⚠️ Error al graficar: {e}")
