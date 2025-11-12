@@ -15,7 +15,6 @@ class ServoController:
         self.gripper = 4            # pinza
 
     def angle_to_pwm(self, angle):
-        """Convierte un ángulo (0–180°) a un valor PWM (duty 0–65535)"""
         pulse_min = 1000  # μs
         pulse_max = 2000  # μs
         pulse = pulse_min + (angle / 180.0) * (pulse_max - pulse_min)

@@ -7,7 +7,7 @@ import roboticstoolbox as rtb
 
 class SimuladorRobot:
     def __init__(self):
-        # Definición de parámetros DH (puedes ajustar según tu robot)
+        # Definición de parámetros DH
         L1 = RevoluteDH(a=10, alpha=0, d=0, offset=0)
         L2 = RevoluteDH(a=10, alpha=0, d=0, offset=0)
         L3 = RevoluteDH(a=10, alpha=0, d=0, offset=0)
@@ -19,7 +19,7 @@ class SimuladorRobot:
         # Posición inicial (todos los ángulos en 0)
         self.q = [0, 0, 0, 0]
 
-        print("SimuladorRobot listo ✅")
+        #print("SimuladorRobot listo ✅")
         print(self.robot)
 
     def actualizar(self, angulos):
