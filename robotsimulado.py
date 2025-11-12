@@ -1,10 +1,11 @@
 import sys
 import numpy as np
-import math
 from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel
 from PyQt5.QtCore import Qt, QTimer
 from adafruit_servokit import ServoKit
 from roboticstoolbox import DHRobot, RevoluteDH
+import matplotlib
+matplotlib.use('Qt5Agg')  # Forzar backend compatible con PyQt5
 import matplotlib.pyplot as plt
 
 # ==============================
@@ -39,13 +40,8 @@ links = [
 ]
 robot = DHRobot(links, name="Robot_4R")
 
-# Creamos una figura estática (una sola ventana de simulación)
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.set_xlim(-20, 20)
-ax.set_ylim(-20, 20)
-ax.set_zlim(0, 25)
-ax.view_init(elev=30, azim=45)
+# Crear entorno gráfico persistente
+env = robot.plot([0, 0, 0, 0], block=False, limits=[-20, 20, -20, 20, 0, 25])
 plt.ion()
 plt.show()
 
@@ -82,7 +78,7 @@ class ServoControl(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
-        self.angles = [0, 0, 0, 0]  # ahora inicia en 0°
+        self.angles = [0, 0, 0, 0]  # iniciar en 0°
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_simulation)
@@ -98,7 +94,7 @@ class ServoControl(QWidget):
             sld = QSlider(Qt.Horizontal, self)
             sld.setMinimum(0)
             sld.setMaximum(180)
-            sld.setValue(0)  # inicia en 0°
+            sld.setValue(0)
             sld.valueChanged.connect(lambda val, idx=i: self.move_servo(idx, val))
             layout.addWidget(lbl)
             layout.addWidget(sld)
@@ -132,7 +128,6 @@ class ServoControl(QWidget):
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
 
     def set_servo_angle(self, channel, angle):
-        """Aplica offset e inversión al ángulo"""
         cfg = servo_config[channel]
         offset, invert = cfg["offset"], cfg["invert"]
 
@@ -144,21 +139,11 @@ class ServoControl(QWidget):
         kit.servo[channel].angle = adj_angle
 
     def update_simulation(self):
-        """Actualiza la simulación 3D (sin mover el plano)"""
-        ax.cla()
-        ax.set_xlim(-20, 20)
-        ax.set_ylim(-20, 20)
-        ax.set_zlim(0, 25)
-        ax.view_init(elev=30, azim=45)
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Z')
-
-        # Convertir a radianes centrando en 0°
+        """Actualiza la simulación del robot en la misma ventana"""
         q_rad = np.deg2rad(self.angles)
-        robot.plot(q_rad, ax=ax, block=False, jointaxes=False, shadow=False)
-        fig.canvas.draw()
-        fig.canvas.flush_events()
+        robot.q = q_rad
+        env.step(q_rad, block=False)
+        plt.pause(0.001)
 
 
 # ==============================
