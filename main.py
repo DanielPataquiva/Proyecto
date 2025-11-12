@@ -12,10 +12,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.simulador = SimuladorRobot()
 
         # Conectar sliders
-        self.slider1.valueChanged.connect(self.actualizar_robot)
-        self.slider2.valueChanged.connect(self.actualizar_robot)
-        self.slider3.valueChanged.connect(self.actualizar_robot)
-        self.slider4.valueChanged.connect(self.actualizar_robot)
+        self.slider_q1.valueChanged.connect(self.actualizar_robot)
+        self.slider_q2.valueChanged.connect(self.actualizar_robot)
+        self.slider_q3.valueChanged.connect(self.actualizar_robot)
+        self.slider_q4.valueChanged.connect(self.actualizar_robot)
 
         # Botones Pick y Place
         self.btn_pick.clicked.connect(self.pick)
@@ -23,10 +23,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def obtener_angulos(self):
         return [
-            self.slider1.value(),
-            self.slider2.value(),
-            self.slider3.value(),
-            self.slider4.value()
+            self.slider_q1.value(),
+            self.slider_q2.value(),
+            self.slider_q3.value(),
+            self.slider_q4.value()
         ]
 
     def actualizar_robot(self):
