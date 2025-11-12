@@ -1,102 +1,58 @@
-# main.py
 import sys
-from PyQt5 import QtWidgets, uic
-from PyQt5.QtCore import Qt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
+import time
+import threading
+from PyQt5 import uic
+from PyQt5.QtWidgets import QApplication, QMainWindow
+from control import ServoController
+from robot import SimuladorRobot
 
-from robot import Robot
-
-class MainWindow(QtWidgets.QMainWindow):
+class MainApp(QMainWindow):
     def __init__(self):
-        super(MainWindow, self).__init__()
+        super().__init__()
         uic.loadUi("interface.ui", self)
 
-        # Instancia el robot (usa hardware si está disponible)
-        self.robot = Robot(use_physical=True)
+        # Inicializa control físico y simulador
+        self.control = ServoController()
+        self.sim = SimuladorRobot()
 
-        # Valores iniciales
-        self.slider_base.setValue(90)
-        self.slider_hombro.setValue(90)
-        self.slider_codo.setValue(90)
-        self.slider_muneca.setValue(90)
-        self.slider_pinza.setValue(90)
-
-        # Embedir Matplotlib en sim_frame
-        self.fig = Figure(figsize=(5.2, 4.8))
-        self.canvas = FigureCanvas(self.fig)
-        self.ax = self.fig.add_subplot(111, projection='3d')
-
-        # Limpiar el layout del frame y añadir canvas
-        layout = QtWidgets.QVBoxLayout(self.sim_frame)
-        layout.setContentsMargins(0,0,0,0)
-        layout.addWidget(self.canvas)
-
-        # Inicializar simulación en robot
-        self.robot.init_simulation_canvas(self.fig, self.ax)
-        self.robot.update_simulation()
+        # Widgets
+        self.sliders = [self.slider_q1, self.slider_q2, self.slider_q3, self.slider_q4]
+        self.labels = [self.label_q1, self.label_q2, self.label_q3, self.label_q4]
 
         # Conectar sliders
-        self.slider_base.valueChanged.connect(self.on_base)
-        self.slider_hombro.valueChanged.connect(self.on_hombro)
-        self.slider_codo.valueChanged.connect(self.on_codo)
-        self.slider_muneca.valueChanged.connect(self.on_muneca)
-        self.slider_pinza.valueChanged.connect(self.on_pinza)
+        for i, slider in enumerate(self.sliders):
+            slider.setMinimum(0)
+            slider.setMaximum(180)
+            slider.setValue(90)
+            slider.valueChanged.connect(lambda val, idx=i: self.on_slider_move(idx, val))
 
-        # Botones
+        # Conectar botones
         self.btn_pick.clicked.connect(self.on_pick)
         self.btn_place.clicked.connect(self.on_place)
 
-        # Mostrar valores iniciales
-        self._update_angle_labels()
+        # Loop de actualización
+        threading.Thread(target=self.loop_sim, daemon=True).start()
 
-        self.show()
+    def on_slider_move(self, idx, val):
+        """Cuando se mueve un slider"""
+        self.labels[idx].setText(f"Joint {idx+1}: {val}°")
+        self.control.set_angle(idx, val)
 
-    # ---- callback sliders ----
-    def on_base(self, v):
-        self.robot.mover_servo("base", v)
-        self._update_angle_labels()
-
-    def on_hombro(self, v):
-        self.robot.mover_servo("hombro", v)
-        self._update_angle_labels()
-
-    def on_codo(self, v):
-        self.robot.mover_servo("codo", v)
-        self._update_angle_labels()
-
-    def on_muneca(self, v):
-        self.robot.mover_servo("muneca", v)
-        self._update_angle_labels()
-
-    def on_pinza(self, v):
-        # mover manual de pinza
-        self.robot.set_servo_direct("pinza", v)
-        self._update_angle_labels()
-
-    # ---- botones pick/place ----
     def on_pick(self):
-        self.robot.pick()
-        # actualizar slider_pinza y labels
-        self.slider_pinza.setValue(self.robot.angles["pinza"])
-        self._update_angle_labels()
+        self.control.pick()
 
     def on_place(self):
-        self.robot.place()
-        self.slider_pinza.setValue(self.robot.angles["pinza"])
-        self._update_angle_labels()
+        self.control.place()
 
-    # ---- UI labels ----
-    def _update_angle_labels(self):
-        self.label_ang_base.setText(f"{self.robot.angles['base']}°")
-        self.label_ang_hombro.setText(f"{self.robot.angles['hombro']}°")
-        self.label_ang_codo.setText(f"{self.robot.angles['codo']}°")
-        self.label_ang_muneca.setText(f"{self.robot.angles['muneca']}°")
-        self.label_ang_pinza.setText(f"{self.robot.angles['pinza']}°")
-
+    def loop_sim(self):
+        """Actualiza la simulación cada 0.1s"""
+        while True:
+            q = [s.value() for s in self.sliders]
+            self.sim.actualizar(q)
+            time.sleep(0.1)
 
 if __name__ == "__main__":
-    app = QtWidgets.QApplication(sys.argv)
-    window = MainWindow()
+    app = QApplication(sys.argv)
+    window = MainApp()
+    window.show()
     sys.exit(app.exec_())

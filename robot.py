@@ -1,125 +1,87 @@
-import time
-import threading
-
-try:
-    # Intenta importar control físico (PCA9685)
-    from adafruit_servokit import ServoKit
-    HARDWARE_AVAILABLE = True
-except ImportError:
-    HARDWARE_AVAILABLE = False
-
-# Librerías para simulación 2D
-from roboticstoolbox import DHRobot, RevoluteDH
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
+import math
 
+# =============================
+# Parámetros del robot
+# =============================
+l1 = 10
+l2 = 10
+l3 = 10
+l4 = 10
 
-class Robot:
-    def __init__(self, use_physical=False):
-        """
-        Si use_physical=True → controla los servos reales (PCA9685)
-        Si use_physical=False → simula el robot en 2D con Peter Corke
-        """
-        self.use_physical = use_physical and HARDWARE_AVAILABLE
+# =============================
+# Función de cinemática directa
+# =============================
+def cinematica_directa(q):
+    q1, q2, q3, q4 = np.deg2rad(q)
 
-        if self.use_physical:
-            print("🦾 Modo FÍSICO activado")
-            self.kit = ServoKit(channels=16)
-            self.servo_base = 0
-            self.servo_hombro_1 = 1
-            self.servo_hombro_2 = 2
-            self.servo_codo = 3
-            self.servo_muneca = 4
-            self.servo_pinza = 5
-            self.reset()
-        else:
-            print("🧠 Modo SIMULACIÓN 2D activado")
-            self._init_simulacion()
+    x0, y0 = 0, 0
+    x1 = l1 * np.cos(q1)
+    y1 = l1 * np.sin(q1)
 
-    # =====================================================
-    # ---------- MODO FÍSICO ------------------------------
-    # =====================================================
-    def mover_servo(self, canal, angulo):
-        try:
-            self.kit.servo[canal].angle = angulo
-            time.sleep(0.02)
-        except Exception as e:
-            print(f"Error servo {canal}: {e}")
+    x2 = x1 + l2 * np.cos(q1 + q2)
+    y2 = y1 + l2 * np.sin(q1 + q2)
 
-    def mover_servos(self, ang_base, ang_hombro):
-        if self.use_physical:
-            self.mover_servo(self.servo_base, ang_base)
-            self.mover_servo(self.servo_hombro_1, ang_hombro)
-            self.mover_servo(self.servo_hombro_2, ang_hombro)
-        else:
-            self.q[0] = np.radians(ang_base)
-            self.q[1] = np.radians(ang_hombro)
-            self._update_plot()
+    x3 = x2 + l3 * np.cos(q1 + q2 + q3)
+    y3 = y2 + l3 * np.sin(q1 + q2 + q3)
 
-    def mover_codo(self, angulo):
-        if self.use_physical:
-            self.mover_servo(self.servo_codo, angulo)
-        else:
-            self.q[2] = np.radians(angulo)
-            self._update_plot()
+    x4 = x3 + l4 * np.cos(q1 + q2 + q3 + q4)
+    y4 = y3 + l4 * np.sin(q1 + q2 + q3 + q4)
 
-    def mover_muneca(self, angulo):
-        if self.use_physical:
-            self.mover_servo(self.servo_muneca, angulo)
-        else:
-            self.q[3] = np.radians(angulo)
-            self._update_plot()
+    X = [x0, x1, x2, x3, x4]
+    Y = [y0, y1, y2, y3, y4]
 
-    def pick(self):
-        if self.use_physical:
-            self.mover_servo(self.servo_pinza, 0)
-        else:
-            print("🤖 Pinza cerrando (Pick)")
+    return X, Y, x4, y4  # también retorna el efector final
 
-    def place(self):
-        if self.use_physical:
-            self.mover_servo(self.servo_pinza, 180)
-        else:
-            print("🤖 Pinza abriendo (Place)")
+# =============================
+# Inicialización
+# =============================
+q_init = [90, 90, 90, 90]  # todos al centro del rango
+X, Y, xe, ye = cinematica_directa(q_init)
 
-    def reset(self):
-        print("Inicializando posiciones del robot...")
-        self.mover_servos(0, 0)
-        self.mover_codo(0)
-        self.mover_muneca(0)
-        self.pick()
+fig, ax = plt.subplots()
+plt.subplots_adjust(left=0.1, bottom=0.35)
+ax.set_aspect('equal')
+ax.set_xlim(-50, 50)
+ax.set_ylim(-10, 50)
+ax.grid(True)
 
-    # =====================================================
-    # ---------- MODO SIMULACIÓN ---------------------------
-    # =====================================================
-    def _init_simulacion(self):
-        # Define un brazo simple de 4 eslabones
-        L1, L2, L3, L4 = 1, 0.8, 0.6, 0.4
-        self.robot = DHRobot([
-            RevoluteDH(a=L1, alpha=0),
-            RevoluteDH(a=L2, alpha=0),
-            RevoluteDH(a=L3, alpha=0),
-            RevoluteDH(a=L4, alpha=0)
-        ], name='BrazoSimulado')
+# Dibujo del robot
+line, = ax.plot(X, Y, 'o-', lw=3, color='royalblue')
 
-        self.q = [0, 0, 0, 0]  # ángulos iniciales
-        self.fig, self.ax = plt.subplots()
-        self.ax.set_xlim(-3, 3)
-        self.ax.set_ylim(-3, 3)
-        self.ax.set_aspect('equal')
-        self.ax.set_title("Simulación 2D - Peter Corke")
-        self.robot.plot(self.q, block=False, ax=self.ax)
-        plt.ion()
-        plt.show()
+# Texto para mostrar coordenadas (x, y)
+pos_text = ax.text(-45, 45, f'X = {xe:.2f}   Y = {ye:.2f}', fontsize=10,
+                   bbox=dict(facecolor='white', alpha=0.7))
 
-    def _update_plot(self):
-        def update():
-            self.ax.cla()
-            self.ax.set_xlim(-3, 3)
-            self.ax.set_ylim(-3, 3)
-            self.ax.set_aspect('equal')
-            self.ax.set_title("Simulación 2D - Peter Corke")
-            self.robot.plot(self.q, block=False, ax=self.ax)
-            plt.pause(0.001)
+# =============================
+# Sliders (0° a 180°)
+# =============================
+axcolor = 'lightgoldenrodyellow'
+slider1_ax = plt.axes([0.15, 0.25, 0.65, 0.03], facecolor=axcolor)
+slider2_ax = plt.axes([0.15, 0.20, 0.65, 0.03], facecolor=axcolor)
+slider3_ax = plt.axes([0.15, 0.15, 0.65, 0.03], facecolor=axcolor)
+slider4_ax = plt.axes([0.15, 0.10, 0.65, 0.03], facecolor=axcolor)
 
-        threading.Thread(target=update, daemon=True).start()
+slider1 = Slider(slider1_ax, 'θ1', 0, 180, valinit=q_init[0])
+slider2 = Slider(slider2_ax, 'θ2', 0, 180, valinit=q_init[1])
+slider3 = Slider(slider3_ax, 'θ3', 0, 180, valinit=q_init[2])
+slider4 = Slider(slider4_ax, 'θ4', 0, 180, valinit=q_init[3])
+
+# =============================
+# Actualización en tiempo real
+# =============================
+def update(val):
+    q = [slider1.val, slider2.val, slider3.val, slider4.val]
+    X, Y, xe, ye = cinematica_directa(q)
+    line.set_data(X, Y)
+    pos_text.set_text(f'X = {xe:.2f}   Y = {ye:.2f}')
+    fig.canvas.draw_idle()
+
+slider1.on_changed(update)
+slider2.on_changed(update)
+slider3.on_changed(update)
+slider4.on_changed(update)
+
+plt.show()
