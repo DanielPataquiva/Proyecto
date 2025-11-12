@@ -8,9 +8,9 @@ class SimuladorRobot:
         # Definición de parámetros DH (base rotacional)
         # L1: rotación alrededor del eje Z → α=90° mueve el plano del brazo
         L1 = RevoluteDH(a=0, alpha=np.pi/2, d=0, offset=0)   # base giratoria
-        L2 = RevoluteDH(a=10, alpha=0, d=0, offset=0)        # primer brazo
-        L3 = RevoluteDH(a=10, alpha=0, d=0, offset=0)        # segundo brazo
-        L4 = RevoluteDH(a=10, alpha=0, d=0, offset=0)        # muñeca
+        L2 = RevoluteDH(a=9, alpha=0, d=0, offset=0)        # primer brazo
+        L3 = RevoluteDH(a=9, alpha=0, d=0, offset=0)        # segundo brazo
+        L4 = RevoluteDH(a=9, alpha=0, d=0, offset=0)        # muñeca
 
         # Crear robot con los 4 eslabones
         self.robot = DHRobot([L1, L2, L3, L4], name="Bender_4R")
