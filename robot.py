@@ -32,13 +32,13 @@ class SimuladorRobot:
 
         # Calcular la cinemática directa
         MTH = self.robot.fkine(self.q)
-        print("\nNueva posición simulada:")
-        print(np.round(MTH.A, 4))
+        #print("\nNueva posición simulada:")
+        #print(np.round(MTH.A, 4))
 
         # Calcular e imprimir orientación RPY (orden zyx)
         try:
             rpy = tr2rpy(MTH.R, order='zyx', unit='deg')
-            print(f"Roll, Pitch, Yaw = {np.round(rpy, 2)}")
+            #print(f"Roll, Pitch, Yaw = {np.round(rpy, 2)}")
         except Exception as e:
             print(f"⚠️ Error calculando RPY: {e}")
 
