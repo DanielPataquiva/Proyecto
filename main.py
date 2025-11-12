@@ -1,58 +1,50 @@
 import sys
-import time
-import threading
-from PyQt5 import uic
-from PyQt5.QtWidgets import QApplication, QMainWindow
+from PyQt5 import QtWidgets, uic
 from control import ServoController
 from robot import SimuladorRobot
 
-class MainApp(QMainWindow):
+class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         uic.loadUi("interface.ui", self)
 
-        # Inicializa control físico y simulador
-        self.control = ServoController()
-        self.sim = SimuladorRobot()
-
-        # Widgets
-        self.sliders = [self.slider_q1, self.slider_q2, self.slider_q3, self.slider_q4]
-        self.labels = [self.label_q1, self.label_q2, self.label_q3, self.label_q4]
+        self.servo_ctrl = ServoController()
+        self.simulador = SimuladorRobot()
 
         # Conectar sliders
-        for i, slider in enumerate(self.sliders):
-            slider.setMinimum(0)
-            slider.setMaximum(180)
-            slider.setValue(90)
-            slider.valueChanged.connect(lambda val, idx=i: self.on_slider_move(idx, val))
+        self.slider1.valueChanged.connect(self.actualizar_robot)
+        self.slider2.valueChanged.connect(self.actualizar_robot)
+        self.slider3.valueChanged.connect(self.actualizar_robot)
+        self.slider4.valueChanged.connect(self.actualizar_robot)
 
-        # Conectar botones
-        self.btn_pick.clicked.connect(self.on_pick)
-        self.btn_place.clicked.connect(self.on_place)
+        # Botones Pick y Place
+        self.btn_pick.clicked.connect(self.pick)
+        self.btn_place.clicked.connect(self.place)
 
-        # Loop de actualización
-        threading.Thread(target=self.loop_sim, daemon=True).start()
+    def obtener_angulos(self):
+        return [
+            self.slider1.value(),
+            self.slider2.value(),
+            self.slider3.value(),
+            self.slider4.value()
+        ]
 
-    def on_slider_move(self, idx, val):
-        """Cuando se mueve un slider"""
-        self.labels[idx].setText(f"Joint {idx+1}: {val}°")
-        self.control.set_angle(idx, val)
+    def actualizar_robot(self):
+        angulos = self.obtener_angulos()
+        # Enviar a servos físicos
+        for i, ang in enumerate(angulos):
+            self.servo_ctrl.set_angle(i, ang)
+        # Actualizar simulador
+        self.simulador.actualizar(angulos)
 
-    def on_pick(self):
-        self.control.pick()
+    def pick(self):
+        self.servo_ctrl.pick()
 
-    def on_place(self):
-        self.control.place()
-
-    def loop_sim(self):
-        """Actualiza la simulación cada 0.1s"""
-        while True:
-            q = [s.value() for s in self.sliders]
-            self.sim.actualizar(q)
-            time.sleep(0.1)
+    def place(self):
+        self.servo_ctrl.place()
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MainApp()
+    app = QtWidgets.QApplication(sys.argv)
+    window = MainWindow()
     window.show()
     sys.exit(app.exec_())
