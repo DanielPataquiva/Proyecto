@@ -4,31 +4,33 @@ from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel
 from PyQt5.QtCore import Qt
 from adafruit_servokit import ServoKit
 
-# ========================
-# CONFIGURACIÓN DE SERVOS
-# ========================
+# =====================================
+# CONFIGURACIÓN PCA9685 Y CALIBRACIÓN
+# =====================================
+
 kit = ServoKit(channels=16)
 
-# Ajustes de servo: canal, rango, inversión, etc.
-# Si tu servo está invertido, pon "invert=True"
+# Configuración individual de servos
+# min_angle / max_angle: limitan físicamente el movimiento
+# offset: corrige el punto "cero" físico
+# invert: invierte dirección si el servo está montado al revés
 servo_config = {
-    0: {"min_angle": 0,   "max_angle": 180, "invert": False},  # Articulación 1
-    1: {"min_angle": 10,  "max_angle": 170, "invert": False},  # Articulación 2 (servo 1)
-    2: {"min_angle": 10,  "max_angle": 170, "invert": True},   # Articulación 2 (servo 2, invertido)
-    3: {"min_angle": 20,  "max_angle": 160, "invert": False},  # Articulación 3
-    4: {"min_angle": 0,   "max_angle": 180, "invert": False},  # Articulación 4
+    0: {"min_angle": 5, "max_angle": 175, "offset": -10, "invert": False},   # Articulación 1
+    1: {"min_angle": 10, "max_angle": 170, "offset": 0,   "invert": False},   # Articulación 2 (servo A)
+    2: {"min_angle": 10, "max_angle": 170, "offset": 0,   "invert": True},    # Articulación 2 (servo B)
+    3: {"min_angle": 15, "max_angle": 165, "offset": 5,   "invert": False},   # Articulación 3
+    4: {"min_angle": 5,  "max_angle": 175, "offset": 0,   "invert": False},   # Articulación 4
 }
 
-# Longitudes de los eslabones (ajusta según tu brazo)
-L1, L2, L3 = 9, 9, 9
+# Longitudes del brazo (para DH)
+L1, L2, L3 = 5, 5, 5
 
 
-# ========================
-# FUNCIONES DE CINEMÁTICA
-# ========================
+# =====================================
+# FUNCIONES DE CINEMÁTICA (DH)
+# =====================================
 
 def dh_matrix(theta, d, a, alpha):
-    """Matriz DH estándar"""
     theta = np.deg2rad(theta)
     alpha = np.deg2rad(alpha)
     return np.array([
@@ -38,9 +40,7 @@ def dh_matrix(theta, d, a, alpha):
         [0,              0,                           0,                           1]
     ])
 
-
 def forward_kinematics(theta1, theta2, theta3, theta4):
-    """Cinemática directa usando parámetros DH"""
     T1 = dh_matrix(theta1, 0, 0, 90)
     T2 = dh_matrix(theta2, 0, L1, 0)
     T3 = dh_matrix(theta3, 0, L2, 0)
@@ -50,9 +50,9 @@ def forward_kinematics(theta1, theta2, theta3, theta4):
     return pos
 
 
-# ========================
-# CLASE DE INTERFAZ GRÁFICA
-# ========================
+# =====================================
+# INTERFAZ GRÁFICA
+# =====================================
 
 class ServoControl(QWidget):
     def __init__(self):
@@ -64,7 +64,7 @@ class ServoControl(QWidget):
         self.labels = []
         self.sliders = []
 
-        for i in range(4):  # Solo 4 sliders (4 articulaciones)
+        for i in range(4):  # 4 articulaciones (4 sliders)
             lbl = QLabel(f"Articulación {i+1}: 90°", self)
             sld = QSlider(Qt.Horizontal, self)
             sld.setMinimum(0)
@@ -80,17 +80,17 @@ class ServoControl(QWidget):
         layout.addWidget(self.pos_label)
 
         self.setLayout(layout)
-        self.setWindowTitle("Control de 5 Servos (PCA9685 + DH)")
+        self.setWindowTitle("Control de 5 Servos (PCA9685 + Calibración + DH)")
         self.setGeometry(200, 200, 400, 300)
 
     def move_servo(self, index, angle):
-        """Mueve los servos físicos con sus rangos e inversiones"""
+        """Mueve los servos físicos y actualiza la cinemática"""
 
         if index == 0:
             self.set_servo_angle(0, angle)
 
         elif index == 1:
-            # Articulación 2 tiene 2 servos sincronizados
+            # Articulación 2: dos servos sincronizados
             self.set_servo_angle(1, angle)
             self.set_servo_angle(2, angle)
 
@@ -100,31 +100,39 @@ class ServoControl(QWidget):
         elif index == 3:
             self.set_servo_angle(4, angle)
 
-        # Actualiza texto del slider
+        # Actualiza la etiqueta
         self.labels[index].setText(f"Articulación {index+1}: {angle}°")
 
-        # Calcula posición DH
+        # Cinemática directa
         angles = [s.value() for s in self.sliders]
         pos = forward_kinematics(*angles)
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
 
     def set_servo_angle(self, channel, angle):
-        """Ajusta ángulo considerando rango e inversión"""
+        """Aplica calibración y mueve el servo"""
         cfg = servo_config[channel]
         min_a, max_a = cfg["min_angle"], cfg["max_angle"]
-        invert = cfg["invert"]
+        offset, invert = cfg["offset"], cfg["invert"]
 
-        # Escalado y corrección por inversión
-        mapped_angle = np.interp(angle, [0, 180], [min_a, max_a])
+        # Aplica offset
+        adj_angle = angle + offset
+
+        # Limita dentro del rango permitido
+        adj_angle = max(0, min(180, adj_angle))
+        mapped_angle = np.interp(adj_angle, [0, 180], [min_a, max_a])
+
+        # Inversión si está montado al revés
         if invert:
             mapped_angle = max_a - (mapped_angle - min_a)
 
+        # Envía al servo
         kit.servo[channel].angle = mapped_angle
 
 
-# ========================
+# =====================================
 # PROGRAMA PRINCIPAL
-# ========================
+# =====================================
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = ServoControl()
