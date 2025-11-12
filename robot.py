@@ -26,7 +26,8 @@ class SimuladorRobot:
         MTH = self.robot.fkine(self.q)
         print("\nNueva posición simulada:")
         print(MTH)
-        print(f"Roll, Pitch, Yaw = {np.round(tr2rpy(MTH.R, 'zyx', 'deg'), 2)}")
+       # print(f"Roll, Pitch, Yaw = {np.round(tr2rpy(MTH.R, 'zyx', 'deg'), 2)}")
+        print(f"Roll, Pitch, Yaw = {np.round(tr2rpy(MTH.R, unit='deg', order='zyx'), 2)}")
 
         # Dibujar 2D simple
         self.robot.plot(self.q, block=False, limits=[-40, 40, -10, 40])
