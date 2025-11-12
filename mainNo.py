@@ -4,15 +4,16 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QSlider, QPushButton,
     QWidget, QLabel, QHBoxLayout
 )
-from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from robot import Robot
 from sensor import Ultrasonico
 
+# Asegurar que PyQt use la plataforma correcta
 os.environ["QT_QPA_PLATFORM"] = "xcb"
 
 
 class SensorThread(QThread):
-    distancia_signal = pyqtSignal(float, float)  
+    distancia_signal = pyqtSignal(float, float)
 
     def __init__(self, sensor):
         super().__init__()
@@ -38,13 +39,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Modo Manual")
         self.setGeometry(200, 100, 600, 400)
 
-        
-        self.robot = Robot()
+        # Cambia a True si quieres usar el robot físico
+        self.robot = Robot(use_physical=False)
         self.sensor = Ultrasonico()
         self.detener = False
         self.ralentizar = False
 
-       
         layout = QVBoxLayout()
         self.sliders = []
         self.labels = []
@@ -90,7 +90,6 @@ class MainWindow(QMainWindow):
         # Inicializar robot
         self.actualizar_robot(initial=True)
 
-
     def actualizar_estado_sensores(self, d1, d2):
         estado = "Normal"
         self.detener = False
@@ -107,16 +106,12 @@ class MainWindow(QMainWindow):
             f"Distancia principal: {d1:.1f} cm | secundario: {d2:.1f} cm | Estado: {estado}"
         )
 
-    # ==============================
-    # Mover robot
-    # ==============================
     def actualizar_robot(self, initial=False):
         if self.detener and not initial:
             return
 
         angulos = [s.value() for s in self.sliders]
         if self.ralentizar:
-
             angulos = [a // 2 for a in angulos]
 
         for i, label in enumerate(self.labels):
@@ -126,18 +121,12 @@ class MainWindow(QMainWindow):
         self.robot.mover_codo(angulos[2])
         self.robot.mover_muneca(angulos[3])
 
-    # ==============================
-    # Al cerrar ventana
-    # ==============================
     def closeEvent(self, event):
         self.sensor_thread.stop()
         self.sensor.cleanup()
         event.accept()
 
-# ==============================
-# Programa principal
 
-# ==============================
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ventana = MainWindow()
