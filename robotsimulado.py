@@ -51,10 +51,14 @@ class ServoControl(QWidget):
         self.angles = [90, 90, 90, 90]  # Posición inicial
         self.initUI()
 
-        # Crear figura de simulación
-        self.fig = plt.figure()
+        # Crear figura de simulación (solo una vez)
+        self.fig = plt.figure("Simulación 3D del Robot")
         self.ax = self.fig.add_subplot(111, projection='3d')
+        plt.ion()  # Modo interactivo para actualizar sin bloquear
         self.fig.show()
+
+        # Dibujar robot por primera vez
+        self.update_simulation()
 
         # Actualizar la simulación cada 100 ms
         self.timer = QTimer()
@@ -87,6 +91,7 @@ class ServoControl(QWidget):
     def move_servo(self, index, angle):
         self.angles[index] = angle
 
+        # Control de servos reales
         if index == 0:
             self.set_servo_angle(0, angle)
         elif index == 1:
@@ -99,6 +104,7 @@ class ServoControl(QWidget):
 
         self.labels[index].setText(f"Articulación {index+1}: {angle}°")
 
+        # Actualizar posición mostrada
         pos = self.forward_kinematics(*self.angles)
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
 
@@ -129,12 +135,18 @@ class ServoControl(QWidget):
         return T[:3, 3]
 
     def update_simulation(self):
-        """Redibuja el robot sin usar env ni ax"""
+        """Actualiza la simulación del robot en la misma figura."""
         q_rad = np.deg2rad(self.angles)
-        plt.clf()  # limpia la figura
-        robot.plot(q_rad, block=False, limits=[-20, 20, -20, 20, 0, 25])
-        plt.pause(0.001)
 
+        # Limpiar el eje sin cerrar la figura
+        self.ax.cla()
+
+        # Dibujar el robot en el mismo eje
+        robot.plot(q_rad, block=False, ax=self.ax, limits=[-20, 20, -20, 20, 0, 25])
+
+        # Actualizar la figura sin crear una nueva ventana
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
 
 # ==============================
 # MAIN
