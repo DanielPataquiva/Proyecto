@@ -1,64 +1,50 @@
-from adafruit_pca9685 import PCA9685
-from board import SCL, SDA
-import busio
-import time
+from adafruit_servokit import ServoKit
 
-class ServoController:
-    def __init__(self):
-        # Inicializar I2C y PCA9685
-        i2c = busio.I2C(SCL, SDA)
-        self.pca = PCA9685(i2c)
-        self.pca.frequency = 50  # Frecuencia típica de servos
+# ============================
+# CONFIGURACIÓN PCA9685 Y SERVOS
+# ============================
 
-        # Mapeo físico de los servos
-        self.servo_base = 0       # Base rotacional
-        self.servo_hombro_1 = 1   # Hombro izquierdo
-        self.servo_hombro_2 = 2   # Hombro derecho (sincronizado)
-        self.servo_codo = 3       # Codo
-        self.servo_muneca = 4     # Muñeca
-        self.servo_pinza = 5      # Pinza (pick/place)
+kit = ServoKit(channels=16)
 
-    # Conversión de ángulo (°) a PWM (16 bits)
-    def angle_to_pwm(self, angle):
-        pulse_min = 1000  # µs
-        pulse_max = 2000  # µs
-        pulse = pulse_min + (angle / 180.0) * (pulse_max - pulse_min)
-        duty = int((pulse / 20000.0) * 65535)
-        return duty
+for ch in range(6):
+    kit.servo[ch].set_pulse_width_range(500, 2500)
 
-    def set_angle(self, joint_index, angle):
-        """Mueve un servo o grupo de servos según el índice del slider"""
-        duty = self.angle_to_pwm(angle)
+servo_config = {
+    0: {"offset": 0,  "invert": False},   # Base
+    1: {"offset": 0,  "invert": False},   # Hombro A
+    2: {"offset": 0,  "invert": True},    # Hombro B
+    3: {"offset": 0,  "invert": False},   # Codo
+    4: {"offset": 0,  "invert": False},   # Muñeca
+    5: {"offset": 0,  "invert": False},   # Pinza
+}
 
-        if joint_index == 0:
-            # Base rotacional
-            self.pca.channels[self.servo_base].duty_cycle = duty
+# ============================
+# FUNCIONES DE CONTROL DE SERVOS
+# ============================
 
-        elif joint_index == 1:
-            # Hombro → mueve 2 servos sincronizados
-            self.pca.channels[self.servo_hombro_1].duty_cycle = duty
-            self.pca.channels[self.servo_hombro_2].duty_cycle = duty
+def set_servo_angle(channel, angle):
+    cfg = servo_config[channel]
+    offset, invert = cfg["offset"], cfg["invert"]
+    adj_angle = angle + offset
+    adj_angle = max(0, min(180, adj_angle))
+    if invert:
+        adj_angle = 180 - adj_angle
+    kit.servo[channel].angle = adj_angle
 
-        elif joint_index == 2:
-            # Codo
-            self.pca.channels[self.servo_codo].duty_cycle = duty
+def move_joint(index, angle):
+    """Mapea índice de articulación a canal del servo físico"""
+    if index == 0:
+        set_servo_angle(0, angle)
+    elif index == 1:
+        set_servo_angle(1, angle)
+        set_servo_angle(2, angle)
+    elif index == 2:
+        set_servo_angle(3, angle)
+    elif index == 3:
+        set_servo_angle(4, angle)
 
-        elif joint_index == 3:
-            # Muñeca
-            self.pca.channels[self.servo_muneca].duty_cycle = duty
+def pick():
+    set_servo_angle(5, 0)
 
-    def pick(self):
-        """Cierra la pinza (servo 5)"""
-        duty = self.angle_to_pwm(0)
-        self.pca.channels[self.servo_pinza].duty_cycle = duty
-
-    def place(self):
-        """Abre la pinza (servo 5)"""
-        duty = self.angle_to_pwm(180)
-        self.pca.channels[self.servo_pinza].duty_cycle = duty
-
-    def stop(self):
-        """Apaga todos los servos"""
-        for ch in range(6):
-            self.pca.channels[ch].duty_cycle = 0
-        self.pca.deinit()
+def place():
+    set_servo_angle(5, 180)

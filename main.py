@@ -1,72 +1,39 @@
-from PyQt5 import QtWidgets, QtCore
-from control import ServoController
-from robot import SimuladorRobot
 import sys
+from PyQt5.QtWidgets import QApplication, QWidget
+from PyQt5.QtCore import QTimer
+from simulacion import Simulacion
+import control
+from interfaz_ui import Ui_Form  # generado por pyuic5
 
-class MainWindow(QtWidgets.QWidget):
+class MainApp(QWidget, Ui_Form):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Control del Robot 4R")
-        self.resize(600, 400)
+        self.setupUi(self)
 
-        self.simulador = SimuladorRobot()
-        self.servo_ctrl = ServoController()
+        self.angles = [0, 0, 0, 0]  # Posición inicial en 0
+        self.sim = Simulacion()
 
-        # Layout principal
-        layout = QtWidgets.QVBoxLayout()
+        # Conectar sliders
+        self.slider1.valueChanged.connect(lambda val: self.slider_changed(0, val))
+        self.slider2.valueChanged.connect(lambda val: self.slider_changed(1, val))
+        self.slider3.valueChanged.connect(lambda val: self.slider_changed(2, val))
+        self.slider4.valueChanged.connect(lambda val: self.slider_changed(3, val))
 
-        # Sliders y etiquetas
-        self.sliders = []
-        self.labels = []
+        # Conectar botones Pick/Place
+        self.btnPick.clicked.connect(control.pick)
+        self.btnPlace.clicked.connect(control.place)
 
-        nombres = ["Base", "Hombro", "Codo", "Muñeca"]
+        # Actualizar simulación periódicamente
+        self.timer = QTimer()
+        self.timer.timeout.connect(lambda: self.sim.update(self.angles))
+        self.timer.start(100)
 
-        for i, nombre in enumerate(nombres):
-            box = QtWidgets.QHBoxLayout()
-            label = QtWidgets.QLabel(f"{nombre}: 90°")
-            slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-            slider.setMinimum(0)
-            slider.setMaximum(180)
-            slider.setValue(90)
-            slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
-            slider.setTickInterval(10)
-
-            # Cuando se mueve el slider, actualizar ángulo y GUI
-            slider.valueChanged.connect(lambda value, idx=i: self.actualizar_angulo(idx, value))
-
-            box.addWidget(label)
-            box.addWidget(slider)
-
-            layout.addLayout(box)
-            self.labels.append(label)
-            self.sliders.append(slider)
-
-        # Botones de pinza
-        botones = QtWidgets.QHBoxLayout()
-        btn_pick = QtWidgets.QPushButton("Pick (Cerrar)")
-        btn_place = QtWidgets.QPushButton("Place (Abrir)")
-        btn_pick.clicked.connect(self.servo_ctrl.pick)
-        btn_place.clicked.connect(self.servo_ctrl.place)
-        botones.addWidget(btn_pick)
-        botones.addWidget(btn_place)
-        layout.addLayout(botones)
-
-        self.setLayout(layout)
-
-    def actualizar_angulo(self, idx, valor):
-        """Actualiza la GUI, simulador y servo físico"""
-        # 1️⃣ Actualiza la etiqueta del ángulo
-        self.labels[idx].setText(f"{['Base', 'Hombro', 'Codo', 'Muñeca'][idx]}: {valor}°")
-
-        # 2️⃣ Actualiza la simulación
-        angulos = [s.value() for s in self.sliders]
-        self.simulador.actualizar(angulos)
-
-        # 3️⃣ Envía valor al servo correspondiente
-        self.servo_ctrl.set_angle(idx, valor)
+    def slider_changed(self, index, val):
+        self.angles[index] = val
+        control.move_joint(index, val)
 
 if __name__ == "__main__":
-    app = QtWidgets.QApplication(sys.argv)
-    window = MainWindow()
+    app = QApplication(sys.argv)
+    window = MainApp()
     window.show()
     sys.exit(app.exec_())
