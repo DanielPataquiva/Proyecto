@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel
+from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel, QPushButton
 from PyQt5.QtCore import Qt, QTimer
 from adafruit_servokit import ServoKit
 from roboticstoolbox import DHRobot, RevoluteDH
@@ -17,12 +17,12 @@ for ch in range(6):
     kit.servo[ch].set_pulse_width_range(500, 2500)
 
 servo_config = {
-    0: {"offset": 0, "invert": False},  # Base
-    1: {"offset": 0, "invert": False},  # Hombro A
-    2: {"offset": 0, "invert": True},   # Hombro B
-    3: {"offset": 0, "invert": False},  # Codo
-    4: {"offset": 0, "invert": False},  # Muñeca
-    5: {"offset": 0, "invert": False},  # Pinza
+    0: {"offset": 0,  "invert": False},   # Base
+    1: {"offset": 0,  "invert": False},   # Hombro A
+    2: {"offset": 0,  "invert": True},    # Hombro B
+    3: {"offset": 0,  "invert": False},   # Codo
+    4: {"offset": 0,  "invert": False},   # Muñeca
+    5: {"offset": 0,  "invert": False},   # Pinza
 }
 
 # Longitudes de eslabones
@@ -47,7 +47,7 @@ robot = DHRobot(links, name="Robot_4R")
 class ServoControl(QWidget):
     def __init__(self):
         super().__init__()
-        self.angles = [0, 0, 0, 0]  # Posición inicial
+        self.angles = [0, 0, 0, 0]  # Posición inicial en cero
         self.initUI()
 
         # Crear figura de simulación
@@ -79,6 +79,16 @@ class ServoControl(QWidget):
 
         self.pos_label = QLabel("Posición final: (x, y, z)", self)
         layout.addWidget(self.pos_label)
+
+        # Botones Pick y Place para el servo de la pinza (canal 5)
+        self.pick_btn = QPushButton("Pick", self)
+        self.pick_btn.clicked.connect(lambda: self.set_servo_angle(5, 0))
+        layout.addWidget(self.pick_btn)
+
+        self.place_btn = QPushButton("Place", self)
+        self.place_btn.clicked.connect(lambda: self.set_servo_angle(5, 180))
+        layout.addWidget(self.place_btn)
+
         self.setLayout(layout)
         self.setWindowTitle("Control Robot 4R - Simulación + PCA9685")
         self.setGeometry(200, 200, 400, 300)
@@ -128,9 +138,9 @@ class ServoControl(QWidget):
         return T[:3, 3]
 
     def update_simulation(self):
-        """Redibuja el robot sin usar env ni ax"""
+        """Redibuja el robot en 3D"""
         q_rad = np.deg2rad(self.angles)
-        plt.clf()  # limpia la figura
+        plt.clf()
         robot.plot(q_rad, block=False, limits=[-20, 20, -20, 20, 0, 25])
         plt.pause(0.001)
 
