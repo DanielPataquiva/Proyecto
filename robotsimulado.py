@@ -1,6 +1,7 @@
 import sys
+import time
 import numpy as np
-from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel, QPushButton
+from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
 from PyQt5.QtCore import Qt, QTimer
 from adafruit_servokit import ServoKit
 from roboticstoolbox import DHRobot, RevoluteDH
@@ -16,12 +17,12 @@ for ch in range(6):
     kit.servo[ch].set_pulse_width_range(500, 2500)
 
 servo_config = {
-    0: {"offset": 0,  "invert": False},   # Base
-    1: {"offset": 0,  "invert": False},   # Hombro A
-    2: {"offset": 0,  "invert": True},    # Hombro B
-    3: {"offset": 0,  "invert": False},   # Codo
-    4: {"offset": 0,  "invert": False},   # Muñeca
-    5: {"offset": 0,  "invert": False},   # Pinza
+    0: {"offset": 0, "invert": False},  # Base
+    1: {"offset": 0, "invert": False},  # Hombro A
+    2: {"offset": 0, "invert": True},   # Hombro B
+    3: {"offset": 0, "invert": False},  # Codo
+    4: {"offset": 0, "invert": False},  # Muñeca
+    5: {"offset": 0, "invert": False},  # Pinza
 }
 
 # Longitudes de eslabones
@@ -44,7 +45,7 @@ robot = DHRobot(links, name="Robot_4R")
 class ServoControl(QWidget):
     def __init__(self):
         super().__init__()
-        self.angles = [0, 0, 0, 0]  # Posición inicial en 0°
+        self.angles = [0, 0, 0, 0]  # Posición inicial en 0
         self.initUI()
 
         # Crear figura de simulación
@@ -74,21 +75,21 @@ class ServoControl(QWidget):
             self.labels.append(lbl)
             self.sliders.append(sld)
 
+        # Botones Pick y Place
+        btn_layout = QHBoxLayout()
+        self.pick_btn = QPushButton("Pick", self)
+        self.place_btn = QPushButton("Place", self)
+        self.pick_btn.clicked.connect(lambda: self.pinza_action(0))
+        self.place_btn.clicked.connect(lambda: self.pinza_action(180))
+        btn_layout.addWidget(self.pick_btn)
+        btn_layout.addWidget(self.place_btn)
+        layout.addLayout(btn_layout)
+
         self.pos_label = QLabel("Posición final: (x, y, z)", self)
         layout.addWidget(self.pos_label)
-
-        # Botones Pick y Place
-        self.pick_btn = QPushButton("Pick", self)
-        self.pick_btn.clicked.connect(lambda: self.set_servo_angle(5, 0))
-        layout.addWidget(self.pick_btn)
-
-        self.place_btn = QPushButton("Place", self)
-        self.place_btn.clicked.connect(lambda: self.set_servo_angle(5, 180))
-        layout.addWidget(self.place_btn)
-
         self.setLayout(layout)
         self.setWindowTitle("Control Robot 4R - Simulación + PCA9685")
-        self.setGeometry(200, 200, 400, 350)
+        self.setGeometry(200, 200, 400, 300)
 
     def move_servo(self, index, angle):
         self.angles[index] = angle
@@ -104,7 +105,6 @@ class ServoControl(QWidget):
             self.set_servo_angle(4, angle)
 
         self.labels[index].setText(f"Articulación {index+1}: {angle}°")
-
         pos = self.forward_kinematics(*self.angles)
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
 
@@ -115,7 +115,14 @@ class ServoControl(QWidget):
         adj_angle = max(0, min(180, adj_angle))
         if invert:
             adj_angle = 180 - adj_angle
-        kit.servo[channel].angle = adj_angle
+        # Enviar varias veces para asegurar que el servo se mueva
+        for _ in range(3):
+            kit.servo[channel].angle = adj_angle
+            time.sleep(0.05)
+
+    def pinza_action(self, angle):
+        # Solo mueve la pinza en el canal 5
+        self.set_servo_angle(5, angle)
 
     def forward_kinematics(self, theta1, theta2, theta3, theta4):
         def dh_matrix(theta, d, a, alpha):
@@ -135,7 +142,6 @@ class ServoControl(QWidget):
         return T[:3, 3]
 
     def update_simulation(self):
-        """Redibuja el robot sin interferir con Qt"""
         q_rad = np.deg2rad(self.angles)
         plt.clf()  # limpia la figura
         robot.plot(q_rad, block=False, limits=[-20, 20, -20, 20, 0, 25])
