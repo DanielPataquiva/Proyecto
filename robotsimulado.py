@@ -129,10 +129,10 @@ class ServoControl(QWidget):
         return T[:3, 3]
 
     def update_simulation(self):
-        """Actualiza la visualización manualmente"""
+        """Redibuja el robot sin usar env ni ax"""
         q_rad = np.deg2rad(self.angles)
-        self.ax.cla()
-        robot.plot(q_rad, ax=self.ax, block=False, limits=[-20, 20, -20, 20, 0, 25])
+        plt.clf()  # limpia la figura
+        robot.plot(q_rad, block=False, limits=[-20, 20, -20, 20, 0, 25])
         plt.pause(0.001)
 
 
