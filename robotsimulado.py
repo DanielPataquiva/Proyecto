@@ -7,8 +7,6 @@ from roboticstoolbox import DHRobot, RevoluteDH
 import matplotlib
 matplotlib.use('Qt5Agg')  # Forzar backend compatible con PyQt5
 import matplotlib.pyplot as plt
-from roboticstoolbox.backends.PyPlot import PyPlot
-
 
 # ==============================
 # CONFIGURACIÓN PCA9685 Y SERVOS
@@ -20,36 +18,31 @@ for ch in range(5):
     kit.servo[ch].set_pulse_width_range(500, 2500)
 
 servo_config = {
-    0: {"offset": 0,  "invert": False},   # Base (canal 0)
-    1: {"offset": 0,  "invert": False},   # Hombro A (canal 1)
-    2: {"offset": 0,  "invert": True},    # Hombro B (canal 2)
-    3: {"offset": 0,  "invert": False},   # Codo (canal 3)
-    4: {"offset": 0,  "invert": False},   # Muñeca (canal 4)
+    0: {"offset": 0,  "invert": False},   # Articulación 1
+    1: {"offset": 0,  "invert": False},   # Articulación 2 (servo A)
+    2: {"offset": 0,  "invert": True},    # Articulación 2 (servo B)
+    3: {"offset": 0,  "invert": False},   # Articulación 3
+    4: {"offset": 0,  "invert": False},   # Articulación 4
 }
 
 L1, L2, L3 = 5, 5, 5
-
 
 # ==============================
 # CREACIÓN DEL ROBOT SIMULADO
 # ==============================
 
 links = [
-    RevoluteDH(d=0, a=0, alpha=np.deg2rad(90)),  # Base
-    RevoluteDH(d=0, a=L1, alpha=0),              # Hombro
-    RevoluteDH(d=0, a=L2, alpha=0),              # Codo
-    RevoluteDH(d=0, a=L3, alpha=0)               # Muñeca
+    RevoluteDH(d=0, a=0, alpha=np.deg2rad(90)),  # θ1
+    RevoluteDH(d=0, a=L1, alpha=0),              # θ2
+    RevoluteDH(d=0, a=L2, alpha=0),              # θ3
+    RevoluteDH(d=0, a=L3, alpha=0)               # θ4
 ]
 robot = DHRobot(links, name="Robot_4R")
 
-# Crear backend de simulación
-env = PyPlot()
-env.launch(name="Simulación Robot 4R")
-env.add(robot, readonly=True)
-robot.q = np.deg2rad([0, 0, 0, 0])
-env.step(robot.q)
-plt.show(block=False)
-
+# Crear entorno gráfico persistente
+env = robot.plot([0, 0, 0, 0], block=False, limits=[-20, 20, -20, 20, 0, 25])
+plt.ion()
+plt.show()
 
 # ==============================
 # FUNCIONES DE CINEMÁTICA
@@ -71,8 +64,8 @@ def forward_kinematics(theta1, theta2, theta3, theta4):
     T3 = dh_matrix(theta3, 0, L2, 0)
     T4 = dh_matrix(theta4, 0, L3, 0)
     T = T1 @ T2 @ T3 @ T4
-    return T[:3, 3]
-
+    pos = T[:3, 3]
+    return pos
 
 # ==============================
 # INTERFAZ GRÁFICA (PyQt5)
@@ -84,7 +77,6 @@ class ServoControl(QWidget):
         self.initUI()
         self.angles = [0, 0, 0, 0]  # iniciar en 0°
 
-        # Temporizador para actualizar simulación
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_simulation)
         self.timer.start(100)
@@ -117,7 +109,6 @@ class ServoControl(QWidget):
         """Mueve los servos físicos y actualiza los valores"""
         self.angles[index] = angle
 
-        # Control de servos reales
         if index == 0:
             self.set_servo_angle(0, angle)
         elif index == 1:
@@ -134,7 +125,6 @@ class ServoControl(QWidget):
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
 
     def set_servo_angle(self, channel, angle):
-        """Aplica offset e inversión antes de mover servo físico"""
         cfg = servo_config[channel]
         offset, invert = cfg["offset"], cfg["invert"]
 
@@ -146,12 +136,11 @@ class ServoControl(QWidget):
         kit.servo[channel].angle = adj_angle
 
     def update_simulation(self):
-        """Actualiza la simulación del robot"""
+        """Actualiza la simulación del robot en la misma ventana"""
         q_rad = np.deg2rad(self.angles)
         robot.q = q_rad
-        env.step(q_rad)  # ya no usa 'block'
+        env.step(q_rad, dt=0.01)  # ✅ se agrega dt explícito
         plt.pause(0.001)
-
 
 # ==============================
 # PROGRAMA PRINCIPAL
