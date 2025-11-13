@@ -51,14 +51,11 @@ class ServoControl(QWidget):
         self.angles = [90, 90, 90, 90]  # Posición inicial
         self.initUI()
 
-        # Crear figura de simulación (solo una vez)
-        self.fig = plt.figure("Simulación 3D del Robot")
-        self.ax = self.fig.add_subplot(111, projection='3d')
-        plt.ion()  # Modo interactivo para actualizar sin bloquear
-        self.fig.show()
-
-        # Dibujar robot por primera vez
-        self.update_simulation()
+        # Crear una sola simulación del robot
+        q_rad = np.deg2rad(self.angles)
+        self.env = robot.plot(q_rad, block=False, limits=[-20, 20, -20, 20, 0, 25])
+        plt.ion()
+        plt.show()
 
         # Actualizar la simulación cada 100 ms
         self.timer = QTimer()
@@ -135,18 +132,10 @@ class ServoControl(QWidget):
         return T[:3, 3]
 
     def update_simulation(self):
-        """Actualiza la simulación del robot en la misma figura."""
+        """Actualiza los ángulos en la simulación existente (sin abrir nuevas ventanas)."""
         q_rad = np.deg2rad(self.angles)
-
-        # Limpiar el eje sin cerrar la figura
-        self.ax.cla()
-
-        # Dibujar el robot en el mismo eje
-        robot.plot(q_rad, block=False, ax=self.ax, limits=[-20, 20, -20, 20, 0, 25])
-
-        # Actualizar la figura sin crear una nueva ventana
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+        self.env.q = q_rad  # actualiza la configuración del robot
+        self.env.step()     # actualiza visualmente la simulación
 
 # ==============================
 # MAIN
