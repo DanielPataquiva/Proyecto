@@ -139,8 +139,8 @@ class ServoControl(QWidget):
         """Actualiza la simulación del robot en la misma ventana"""
         q_rad = np.deg2rad(self.angles)
         robot.q = q_rad
-        env.step(q_rad, dt=0.01)  # ✅ se agrega dt explícito
-        plt.pause(0.001)
+        env.step(q_rad)  # ✅ sin dt
+        plt.pause(0.01)
 
 # ==============================
 # PROGRAMA PRINCIPAL
