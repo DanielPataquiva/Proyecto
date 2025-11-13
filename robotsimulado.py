@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 # ==============================
 # CONFIGURACIÓN PCA9685 Y SERVOS
 # ==============================
-
 kit = ServoKit(channels=16)
 for ch in range(6):
     kit.servo[ch].set_pulse_width_range(500, 2500)
@@ -31,7 +30,6 @@ L1, L2, L3 = 5, 5, 5
 # ==============================
 # MODELO DEL ROBOT
 # ==============================
-
 links = [
     RevoluteDH(d=0, a=0, alpha=np.deg2rad(90)),  # Base
     RevoluteDH(d=0, a=L1, alpha=0),              # Hombro
@@ -43,11 +41,10 @@ robot = DHRobot(links, name="Robot_4R")
 # ==============================
 # INTERFAZ GRÁFICA
 # ==============================
-
 class ServoControl(QWidget):
     def __init__(self):
         super().__init__()
-        self.angles = [0, 0, 0, 0]  # Posición inicial en cero
+        self.angles = [0, 0, 0, 0]  # Posición inicial en 0°
         self.initUI()
 
         # Crear figura de simulación
@@ -80,7 +77,7 @@ class ServoControl(QWidget):
         self.pos_label = QLabel("Posición final: (x, y, z)", self)
         layout.addWidget(self.pos_label)
 
-        # Botones Pick y Place para el servo de la pinza (canal 5)
+        # Botones Pick y Place
         self.pick_btn = QPushButton("Pick", self)
         self.pick_btn.clicked.connect(lambda: self.set_servo_angle(5, 0))
         layout.addWidget(self.pick_btn)
@@ -91,7 +88,7 @@ class ServoControl(QWidget):
 
         self.setLayout(layout)
         self.setWindowTitle("Control Robot 4R - Simulación + PCA9685")
-        self.setGeometry(200, 200, 400, 300)
+        self.setGeometry(200, 200, 400, 350)
 
     def move_servo(self, index, angle):
         self.angles[index] = angle
@@ -138,16 +135,16 @@ class ServoControl(QWidget):
         return T[:3, 3]
 
     def update_simulation(self):
-        """Redibuja el robot en 3D"""
+        """Redibuja el robot sin interferir con Qt"""
         q_rad = np.deg2rad(self.angles)
-        plt.clf()
+        plt.clf()  # limpia la figura
         robot.plot(q_rad, block=False, limits=[-20, 20, -20, 20, 0, 25])
         plt.pause(0.001)
+
 
 # ==============================
 # MAIN
 # ==============================
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = ServoControl()
