@@ -139,8 +139,9 @@ class ServoControl(QWidget):
         """Actualiza la simulación del robot en la misma ventana"""
         q_rad = np.deg2rad(self.angles)
         robot.q = q_rad
-        env.step(q_rad)  # ✅ sin dt
+        env.update(q_rad)  # ✅ Actualiza sin llamar a plt.pause(dt)
         plt.pause(0.01)
+
 
 # ==============================
 # PROGRAMA PRINCIPAL
