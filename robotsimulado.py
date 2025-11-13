@@ -1,157 +1,109 @@
 import sys
+import time
 import numpy as np
-from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel
-from PyQt5.QtCore import Qt, QTimer
-from adafruit_servokit import ServoKit
-from roboticstoolbox import DHRobot, RevoluteDH
-import matplotlib
-matplotlib.use('Qt5Agg')  # Forzar backend compatible con PyQt5
 import matplotlib.pyplot as plt
+from PyQt5 import QtWidgets, QtCore
+from roboticstoolbox import DHRobot, RevoluteDH
 
-# ==============================
-# CONFIGURACIÓN PCA9685 Y SERVOS
-# ==============================
+# -------------------------------
+# CONFIGURACIÓN DEL ROBOT
+# -------------------------------
+class RobotSimulado(DHRobot):
+    def __init__(self):
+        L1 = RevoluteDH(d=0.1, a=0.1, alpha=np.pi / 2)
+        L2 = RevoluteDH(d=0, a=0.1, alpha=0)
+        L3 = RevoluteDH(d=0, a=0.1, alpha=0)
+        L4 = RevoluteDH(d=0, a=0.1, alpha=0)
+        L5 = RevoluteDH(d=0, a=0.05, alpha=0)
+        L6 = RevoluteDH(d=0, a=0.05, alpha=0)
+        super().__init__([L1, L2, L3, L4, L5, L6], name="Brazo 6DOF")
 
-kit = ServoKit(channels=16)
-
-for ch in range(5):
-    kit.servo[ch].set_pulse_width_range(500, 2500)
-
-servo_config = {
-    0: {"offset": 0,  "invert": False},   # Articulación 1
-    1: {"offset": 0,  "invert": False},   # Articulación 2 (servo A)
-    2: {"offset": 0,  "invert": True},    # Articulación 2 (servo B)
-    3: {"offset": 0,  "invert": False},   # Articulación 3
-    4: {"offset": 0,  "invert": False},   # Articulación 4
-}
-
-L1, L2, L3 = 5, 5, 5
-
-
-# ==============================
-# CREACIÓN DEL ROBOT SIMULADO
-# ==============================
-
-links = [
-    RevoluteDH(d=0, a=0, alpha=np.deg2rad(90)),  # θ1
-    RevoluteDH(d=0, a=L1, alpha=0),              # θ2
-    RevoluteDH(d=0, a=L2, alpha=0),              # θ3
-    RevoluteDH(d=0, a=L3, alpha=0)               # θ4
-]
-robot = DHRobot(links, name="Robot_4R")
-
-# Crear entorno gráfico persistente
-env = robot.plot([0, 0, 0, 0], block=False, limits=[-20, 20, -20, 20, 0, 25])
-plt.ion()
-plt.show()
+# Instancia del robot
+robot = RobotSimulado()
 
 
-# ==============================
-# FUNCIONES DE CINEMÁTICA
-# ==============================
-
-def dh_matrix(theta, d, a, alpha):
-    theta = np.deg2rad(theta)
-    alpha = np.deg2rad(alpha)
-    return np.array([
-        [np.cos(theta), -np.sin(theta)*np.cos(alpha), np.sin(theta)*np.sin(alpha), a*np.cos(theta)],
-        [np.sin(theta),  np.cos(theta)*np.cos(alpha), -np.cos(theta)*np.sin(alpha), a*np.sin(theta)],
-        [0,              np.sin(alpha),               np.cos(alpha),               d],
-        [0,              0,                           0,                           1]
-    ])
-
-def forward_kinematics(theta1, theta2, theta3, theta4):
-    T1 = dh_matrix(theta1, 0, 0, 90)
-    T2 = dh_matrix(theta2, 0, L1, 0)
-    T3 = dh_matrix(theta3, 0, L2, 0)
-    T4 = dh_matrix(theta4, 0, L3, 0)
-    T = T1 @ T2 @ T3 @ T4
-    pos = T[:3, 3]
-    return pos
-
-
-# ==============================
-# INTERFAZ GRÁFICA (PyQt5)
-# ==============================
-
-class ServoControl(QWidget):
+# -------------------------------
+# INTERFAZ GRÁFICA
+# -------------------------------
+class VentanaPrincipal(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.initUI()
-        self.angles = [0, 0, 0, 0]  # iniciar en 0°
+        self.setWindowTitle("Simulación Brazo Robótico - Proyecto RPi")
+        self.setGeometry(100, 100, 600, 500)
 
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_simulation)
-        self.timer.start(100)
+        self.layout = QtWidgets.QVBoxLayout()
+        self.setLayout(self.layout)
 
-    def initUI(self):
-        layout = QVBoxLayout()
+        self.angles = [90, 90, 90, 90, 90, 90]  # Inicial en 90°
+
+        # Etiquetas para los servos
         self.labels = []
         self.sliders = []
 
-        for i in range(4):
-            lbl = QLabel(f"Articulación {i+1}: 0°", self)
-            sld = QSlider(Qt.Horizontal, self)
-            sld.setMinimum(0)
-            sld.setMaximum(180)
-            sld.setValue(0)
-            sld.valueChanged.connect(lambda val, idx=i: self.move_servo(idx, val))
-            layout.addWidget(lbl)
-            layout.addWidget(sld)
-            self.labels.append(lbl)
-            self.sliders.append(sld)
+        nombres_servos = [
+            "Base (canal 0)",
+            "Hombro (canales 1 y 2)",
+            "Codo (canal 3)",
+            "Muñeca (canal 4)",
+            "Pinza (canal 5)",
+        ]
 
-        self.pos_label = QLabel("Posición final: (x, y, z)", self)
-        layout.addWidget(self.pos_label)
+        # Creamos sliders
+        for i in range(6):
+            hbox = QtWidgets.QHBoxLayout()
 
-        self.setLayout(layout)
-        self.setWindowTitle("Control de Robot 4R - Simulación + PCA9685")
-        self.setGeometry(200, 200, 400, 300)
+            label = QtWidgets.QLabel(f"Servo {i + 1}: {self.angles[i]}°")
+            slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+            slider.setMinimum(0)
+            slider.setMaximum(180)
+            slider.setValue(self.angles[i])
+            slider.setTickInterval(10)
+            slider.valueChanged.connect(self.crear_callback(i, label))
 
-    def move_servo(self, index, angle):
-        """Mueve los servos físicos y actualiza los valores"""
-        self.angles[index] = angle
+            hbox.addWidget(label)
+            hbox.addWidget(slider)
 
-        if index == 0:
-            self.set_servo_angle(0, angle)
-        elif index == 1:
-            self.set_servo_angle(1, angle)
-            self.set_servo_angle(2, angle)
-        elif index == 2:
-            self.set_servo_angle(3, angle)
-        elif index == 3:
-            self.set_servo_angle(4, angle)
+            self.layout.addLayout(hbox)
+            self.labels.append(label)
+            self.sliders.append(slider)
 
-        self.labels[index].setText(f"Articulación {index+1}: {angle}°")
+        # Botón actualizar simulación
+        self.boton_actualizar = QtWidgets.QPushButton("Actualizar simulación")
+        self.boton_actualizar.clicked.connect(self.update_simulation)
+        self.layout.addWidget(self.boton_actualizar)
 
-        pos = forward_kinematics(*self.angles)
-        self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
+        # Figura para la simulación
+        plt.ion()
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111, projection="3d")
+        self.update_simulation()
 
-    def set_servo_angle(self, channel, angle):
-        cfg = servo_config[channel]
-        offset, invert = cfg["offset"], cfg["invert"]
+    def crear_callback(self, index, label):
+        def callback(value):
+            self.angles[index] = value
+            label.setText(f"Servo {index + 1}: {value}°")
+            self.update_simulation()
 
-        adj_angle = angle + offset
-        adj_angle = max(0, min(180, adj_angle))
-        if invert:
-            adj_angle = 180 - adj_angle
-
-        kit.servo[channel].angle = adj_angle
+        return callback
 
     def update_simulation(self):
-        """Actualiza la simulación del robot en la misma ventana"""
+        """Actualiza la simulación del robot sin cerrar la ventana."""
         q_rad = np.deg2rad(self.angles)
-        robot.q = q_rad
-        env.step(q_rad, block=False)
-        plt.pause(0.001)
+
+        try:
+            self.ax.clear()
+            robot.plot(q_rad, ax=self.ax, block=False, jointaxes=False, shadow=False)
+            self.ax.set_title("Simulación 3D del Brazo Robótico")
+            plt.pause(0.001)
+        except Exception as e:
+            print(f"⚠️ Error actualizando simulación: {e}")
 
 
-# ==============================
-# PROGRAMA PRINCIPAL
-# ==============================
-
+# -------------------------------
+# EJECUCIÓN PRINCIPAL
+# -------------------------------
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = ServoControl()
-    window.show()
+    app = QtWidgets.QApplication(sys.argv)
+    ventana = VentanaPrincipal()
+    ventana.show()
     sys.exit(app.exec_())
