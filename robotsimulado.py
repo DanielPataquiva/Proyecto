@@ -47,7 +47,7 @@ robot = DHRobot(links, name="Robot_4R")
 class ServoControl(QWidget):
     def __init__(self):
         super().__init__()
-        self.angles = [90, 90, 90, 90]  # Posición inicial
+        self.angles = [0, 0, 0, 0]  # Posición inicial
         self.initUI()
 
         # Crear figura de simulación
@@ -66,11 +66,11 @@ class ServoControl(QWidget):
         self.sliders = []
 
         for i in range(4):
-            lbl = QLabel(f"Articulación {i+1}: 90°", self)
+            lbl = QLabel(f"Articulación {i+1}: 0°", self)
             sld = QSlider(Qt.Horizontal, self)
             sld.setMinimum(0)
             sld.setMaximum(180)
-            sld.setValue(90)
+            sld.setValue(0)
             sld.valueChanged.connect(lambda val, idx=i: self.move_servo(idx, val))
             layout.addWidget(lbl)
             layout.addWidget(sld)
