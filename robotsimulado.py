@@ -50,8 +50,8 @@ class ServoControl(QWidget):
         self.angles = [90, 90, 90, 90]  # Posición inicial
         self.initUI()
 
-        # Crear figura de simulación (una sola vez)
-        self.fig = plt.figure("Simulación 3D del Robot")
+        # Crear figura 3D interactiva
+        self.fig = plt.figure("Simulación 3D del Robot", figsize=(6, 6))
         self.ax = self.fig.add_subplot(111, projection='3d')
         plt.ion()
         self.fig.show()
@@ -132,16 +132,45 @@ class ServoControl(QWidget):
         T = T1 @ T2 @ T3 @ T4
         return T[:3, 3]
 
+    def draw_cylinder(self, p1, p2, radius=0.3, color='steelblue'):
+        """Dibuja un cilindro 3D entre dos puntos."""
+        v = p2 - p1
+        mag = np.linalg.norm(v)
+        if mag == 0:
+            return
+        v = v / mag
+
+        # Crear un sistema de coordenadas local
+        not_v = np.array([1, 0, 0]) if (abs(v[0]) < 0.99) else np.array([0, 1, 0])
+        n1 = np.cross(v, not_v)
+        n1 /= np.linalg.norm(n1)
+        n2 = np.cross(v, n1)
+
+        # Superficie cilíndrica
+        t = np.linspace(0, mag, 10)
+        theta = np.linspace(0, 2 * np.pi, 20)
+        t, theta = np.meshgrid(t, theta)
+
+        X, Y, Z = [p1[i] + v[i]*t + radius*np.sin(theta)*n1[i] + radius*np.cos(theta)*n2[i] for i in range(3)]
+        self.ax.plot_surface(X, Y, Z, color=color, alpha=0.8, linewidth=0, shade=True)
+
+    def draw_sphere(self, center, radius=0.5, color='orange'):
+        """Dibuja una esfera 3D pequeña en una articulación."""
+        u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+        x = center[0] + radius * np.cos(u) * np.sin(v)
+        y = center[1] + radius * np.sin(u) * np.sin(v)
+        z = center[2] + radius * np.cos(v)
+        self.ax.plot_surface(x, y, z, color=color, shade=True)
+
     def update_simulation(self):
-        """Dibuja el robot 3D sin usar roboticstoolbox.plot() para evitar conflictos."""
+        """Dibuja el robot con estilo 3D."""
         q = np.deg2rad(self.angles)
-        points = np.array([[0, 0, 0]])  # punto base
+        points = np.array([[0, 0, 0]])
 
         def fk_partial(thetas):
             T = np.eye(4)
             for i, th in enumerate(thetas):
                 link = robot.links[i]
-                # 🔧 Conversión SE3 -> matriz numpy
                 A = link.A(th).A
                 T = T @ A
             return T[:3, 3]
@@ -152,15 +181,20 @@ class ServoControl(QWidget):
 
         # Redibujar figura
         self.ax.cla()
-        self.ax.plot(points[:, 0], points[:, 1], points[:, 2], '-o', color='blue', lw=2)
+        for i in range(len(points)-1):
+            self.draw_cylinder(points[i], points[i+1])
+        for p in points:
+            self.draw_sphere(p)
+
         self.ax.set_xlim([-20, 20])
         self.ax.set_ylim([-20, 20])
         self.ax.set_zlim([0, 25])
         self.ax.set_xlabel("X")
         self.ax.set_ylabel("Y")
         self.ax.set_zlabel("Z")
-        self.ax.set_title("Simulación 3D del Robot")
-
+        self.ax.set_box_aspect([1, 1, 1])
+        self.ax.set_title("Simulación 3D del Robot (Mejorada)")
+        self.ax.view_init(elev=25, azim=45)
         self.fig.canvas.draw_idle()
         self.fig.canvas.flush_events()
 
