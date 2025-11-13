@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 # ==============================
 
 kit = ServoKit(channels=16)
-
 for ch in range(6):
     kit.servo[ch].set_pulse_width_range(500, 2500)
 
@@ -51,11 +50,14 @@ class ServoControl(QWidget):
         self.angles = [90, 90, 90, 90]  # Posición inicial
         self.initUI()
 
-        # Crear una sola simulación del robot
-        q_rad = np.deg2rad(self.angles)
-        self.env = robot.plot(q_rad, block=False, limits=[-20, 20, -20, 20, 0, 25])
+        # Crear figura de simulación (una sola vez)
+        self.fig = plt.figure("Simulación 3D del Robot")
+        self.ax = self.fig.add_subplot(111, projection='3d')
         plt.ion()
-        plt.show()
+        self.fig.show()
+
+        # Dibujo inicial
+        self.update_simulation()
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -100,7 +102,7 @@ class ServoControl(QWidget):
         pos = self.forward_kinematics(*self.angles)
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
 
-        # 🔄 Actualizar simulación inmediatamente
+        # Actualizar simulación
         self.update_simulation()
 
     def set_servo_angle(self, channel, angle):
@@ -113,6 +115,7 @@ class ServoControl(QWidget):
         kit.servo[channel].angle = adj_angle
 
     def forward_kinematics(self, theta1, theta2, theta3, theta4):
+        """Devuelve posición del efector final."""
         def dh_matrix(theta, d, a, alpha):
             theta = np.deg2rad(theta)
             alpha = np.deg2rad(alpha)
@@ -130,16 +133,36 @@ class ServoControl(QWidget):
         return T[:3, 3]
 
     def update_simulation(self):
-        """Actualiza los ángulos en la simulación existente sin usar plt.pause()."""
-        q_rad = np.deg2rad(self.angles)
-        self.env.q = q_rad
-        self.env.step()
+        """Dibuja el robot 3D sin usar roboticstoolbox.plot() para evitar conflictos."""
+        # Calcular todas las posiciones de articulaciones
+        q = np.deg2rad(self.angles)
+        points = np.array([[0, 0, 0]])  # punto base
 
-        # 🔁 Forzar redibujado manual del canvas
-        fig = plt.gcf()
-        if fig.canvas is not None:
-            fig.canvas.draw_idle()
-            fig.canvas.flush_events()
+        def fk_partial(thetas):
+            T = np.eye(4)
+            for i, th in enumerate(thetas):
+                link = robot.links[i]
+                A = link.A(th)
+                T = T @ A
+            return T[:3, 3]
+
+        for i in range(1, 5):
+            p = fk_partial(q[:i])
+            points = np.vstack((points, p))
+
+        # Redibujar figura
+        self.ax.cla()
+        self.ax.plot(points[:, 0], points[:, 1], points[:, 2], '-o', color='blue', lw=2)
+        self.ax.set_xlim([-20, 20])
+        self.ax.set_ylim([-20, 20])
+        self.ax.set_zlim([0, 25])
+        self.ax.set_xlabel("X")
+        self.ax.set_ylabel("Y")
+        self.ax.set_zlabel("Z")
+        self.ax.set_title("Simulación 3D del Robot")
+
+        self.fig.canvas.draw_idle()
+        self.fig.canvas.flush_events()
 
 # ==============================
 # MAIN
