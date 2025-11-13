@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt
 from adafruit_servokit import ServoKit
 from roboticstoolbox import DHRobot, RevoluteDH
 import matplotlib
@@ -57,11 +57,6 @@ class ServoControl(QWidget):
         plt.ion()
         plt.show()
 
-        # Actualizar la simulación cada 100 ms
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_simulation)
-        self.timer.start(100)
-
     def initUI(self):
         layout = QVBoxLayout()
         self.labels = []
@@ -105,6 +100,9 @@ class ServoControl(QWidget):
         pos = self.forward_kinematics(*self.angles)
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
 
+        # 🔄 Actualizar simulación inmediatamente
+        self.update_simulation()
+
     def set_servo_angle(self, channel, angle):
         cfg = servo_config[channel]
         offset, invert = cfg["offset"], cfg["invert"]
@@ -134,8 +132,9 @@ class ServoControl(QWidget):
     def update_simulation(self):
         """Actualiza los ángulos en la simulación existente (sin abrir nuevas ventanas)."""
         q_rad = np.deg2rad(self.angles)
-        self.env.q = q_rad  # actualiza la configuración del robot
-        self.env.step()     # actualiza visualmente la simulación
+        self.env.q = q_rad
+        self.env.step()
+        plt.pause(0.001)  # 🔄 fuerza el refresco del dibujo
 
 # ==============================
 # MAIN
