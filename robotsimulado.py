@@ -130,11 +130,16 @@ class ServoControl(QWidget):
         return T[:3, 3]
 
     def update_simulation(self):
-        """Actualiza los ángulos en la simulación existente (sin abrir nuevas ventanas)."""
+        """Actualiza los ángulos en la simulación existente sin usar plt.pause()."""
         q_rad = np.deg2rad(self.angles)
         self.env.q = q_rad
         self.env.step()
-        plt.pause(0.001)  # 🔄 fuerza el refresco del dibujo
+
+        # 🔁 Forzar redibujado manual del canvas
+        fig = plt.gcf()
+        if fig.canvas is not None:
+            fig.canvas.draw_idle()
+            fig.canvas.flush_events()
 
 # ==============================
 # MAIN
