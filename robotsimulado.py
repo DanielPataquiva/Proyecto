@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 # ==============================
 # CONFIGURACIÓN PCA9685 Y SERVOS
 # ==============================
+
 kit = ServoKit(channels=16)
 for ch in range(6):
     kit.servo[ch].set_pulse_width_range(500, 2500)
@@ -30,6 +31,7 @@ L1, L2, L3 = 5, 5, 5
 # ==============================
 # MODELO DEL ROBOT
 # ==============================
+
 links = [
     RevoluteDH(d=0, a=0, alpha=np.deg2rad(90)),  # Base
     RevoluteDH(d=0, a=L1, alpha=0),              # Hombro
@@ -41,29 +43,22 @@ robot = DHRobot(links, name="Robot_4R")
 # ==============================
 # INTERFAZ GRÁFICA
 # ==============================
+
 class ServoControl(QWidget):
     def __init__(self):
         super().__init__()
         self.angles = [90, 90, 90, 90]  # Posición inicial
         self.initUI()
 
-        # Crear figura de simulación 3D
-        self.fig = plt.figure(figsize=(6,6))
+        # Crear figura de simulación
+        self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111, projection='3d')
-        self.ax.set_xlim([-20, 20])
-        self.ax.set_ylim([-20, 20])
-        self.ax.set_zlim([0, 25])
-        self.ax.set_xlabel('X')
-        self.ax.set_ylabel('Y')
-        self.ax.set_zlabel('Z')
-        plt.ion()  # modo interactivo
         self.fig.show()
-        self.update_simulation()
 
-        # Timer para actualizar continuamente la simulación
+        # Actualizar la simulación cada 100 ms
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_simulation)
-        self.timer.start(100)  # cada 100 ms
+        self.timer.start(100)
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -91,7 +86,6 @@ class ServoControl(QWidget):
     def move_servo(self, index, angle):
         self.angles[index] = angle
 
-        # Actualiza servos físicos
         if index == 0:
             self.set_servo_angle(0, angle)
         elif index == 1:
@@ -102,10 +96,8 @@ class ServoControl(QWidget):
         elif index == 3:
             self.set_servo_angle(4, angle)
 
-        # Actualiza etiqueta
         self.labels[index].setText(f"Articulación {index+1}: {angle}°")
 
-        # Actualiza posición final
         pos = self.forward_kinematics(*self.angles)
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
 
@@ -123,10 +115,10 @@ class ServoControl(QWidget):
             theta = np.deg2rad(theta)
             alpha = np.deg2rad(alpha)
             return np.array([
-                [np.cos(theta), -np.sin(theta)*np.cos(alpha),  np.sin(theta)*np.sin(alpha), a*np.cos(theta)],
+                [np.cos(theta), -np.sin(theta)*np.cos(alpha), np.sin(theta)*np.sin(alpha), a*np.cos(theta)],
                 [np.sin(theta),  np.cos(theta)*np.cos(alpha), -np.cos(theta)*np.sin(alpha), a*np.sin(theta)],
-                [0,              np.sin(alpha),                np.cos(alpha),               d],
-                [0,              0,                            0,                           1]
+                [0,              np.sin(alpha),               np.cos(alpha),               d],
+                [0,              0,                           0,                           1]
             ])
         T1 = dh_matrix(theta1, 0, 0, 90)
         T2 = dh_matrix(theta2, 0, L1, 0)
@@ -136,22 +128,16 @@ class ServoControl(QWidget):
         return T[:3, 3]
 
     def update_simulation(self):
-        """Redibuja el robot en la misma ventana 3D"""
-        self.ax.cla()  # limpiar ejes
-        self.ax.set_xlim([-20, 20])
-        self.ax.set_ylim([-20, 20])
-        self.ax.set_zlim([0, 25])
-        self.ax.set_xlabel('X')
-        self.ax.set_ylabel('Y')
-        self.ax.set_zlabel('Z')
+        """Redibuja el robot sin usar env ni ax"""
         q_rad = np.deg2rad(self.angles)
-        robot.plot(q_rad, block=False, backend='pyplot', ax=self.ax)
-        plt.draw()
+        plt.clf()  # limpia la figura
+        robot.plot(q_rad, block=False, limits=[-20, 20, -20, 20, 0, 25])
         plt.pause(0.001)
 
 # ==============================
 # MAIN
 # ==============================
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = ServoControl()
