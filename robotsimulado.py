@@ -134,7 +134,6 @@ class ServoControl(QWidget):
 
     def update_simulation(self):
         """Dibuja el robot 3D sin usar roboticstoolbox.plot() para evitar conflictos."""
-        # Calcular todas las posiciones de articulaciones
         q = np.deg2rad(self.angles)
         points = np.array([[0, 0, 0]])  # punto base
 
@@ -142,7 +141,8 @@ class ServoControl(QWidget):
             T = np.eye(4)
             for i, th in enumerate(thetas):
                 link = robot.links[i]
-                A = link.A(th)
+                # 🔧 Conversión SE3 -> matriz numpy
+                A = link.A(th).A
                 T = T @ A
             return T[:3, 3]
 
