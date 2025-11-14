@@ -11,13 +11,13 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Control Robot 4R</string>
+   <string>Control Robot 4R Manual</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QLabel" name="label1">
      <property name="text">
-      <string>Articulación 1: 0°</string>
+      <string>Base: 0°</string>
      </property>
     </widget>
    </item>
@@ -40,7 +40,7 @@
    <item>
     <widget class="QLabel" name="label2">
      <property name="text">
-      <string>Articulación 2: 0°</string>
+      <string>Hombro: 0°</string>
      </property>
     </widget>
    </item>
@@ -63,7 +63,7 @@
    <item>
     <widget class="QLabel" name="label3">
      <property name="text">
-      <string>Articulación 3: 0°</string>
+      <string>Codo: 0°</string>
      </property>
     </widget>
    </item>
@@ -86,7 +86,7 @@
    <item>
     <widget class="QLabel" name="label4">
      <property name="text">
-      <string>Articulación 4: 0°</string>
+      <string>Muñeca: 0°</string>
      </property>
     </widget>
    </item>
