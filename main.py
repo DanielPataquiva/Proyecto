@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 # Sensores
 from sensor import Ultrasonico
 
+# Importamos la simulación (ahora centraliza el dibujo y la base)
+from simulacion import Simulacion, robot  # import robot por compatibilidad si hace falta
+
 # ==============================
 # CONFIGURACIÓN PCA9685 Y SERVOS
 # ==============================
@@ -28,19 +31,8 @@ servo_config = {
     5: {"offset": 0, "invert": False},  # Pinza
 }
 
-# Longitudes de eslabones
+# Longitudes de eslabones (definidas también en simulacion.py)
 L1, L2, L3 = 9, 9, 9
-
-# ==============================
-# MODELO DEL ROBOT
-# ==============================
-links = [
-    RevoluteDH(d=0, a=0, alpha=np.deg2rad(90)),  # Base
-    RevoluteDH(d=0, a=L1, alpha=0),             # Hombro
-    RevoluteDH(d=0, a=L2, alpha=0),             # Codo
-    RevoluteDH(d=0, a=L3, alpha=0)              # Muñeca
-]
-robot = DHRobot(links, name="Robot_4R")
 
 # ==============================
 # INTERFAZ GRÁFICA
@@ -58,7 +50,11 @@ class ServoControl(QWidget):
         self.robot_lento = False
         self.robot_parado = False
 
+        # Creamos el objeto de simulación (mantiene la figura y el eje)
+        self.sim = Simulacion()
+
         self.initUI()
+        # mostramos primera posición en la simulación
         self.update_simulation()
 
         # Timer simulación
@@ -210,13 +206,11 @@ class ServoControl(QWidget):
         return T[:3, 3]
 
     # ====================================
-    # SIMULACIÓN
+    # SIMULACIÓN (usa la clase Simulacion)
     # ====================================
     def update_simulation(self):
-        q_rad = np.deg2rad(self.angles)
-        plt.clf()
-        robot.plot(q_rad, block=False, limits=[-20, 20, -20, 20, 0, 25])
-        plt.pause(0.001)
+        # Delegamos la actualización de la vista a la clase Simulacion
+        self.sim.update(self.angles)
 
 # ==============================
 # MAIN
