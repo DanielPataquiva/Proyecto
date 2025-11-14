@@ -12,8 +12,16 @@ import matplotlib.pyplot as plt
 # Sensores
 from sensor import Ultrasonico
 
-# Importamos la simulación (ahora centraliza el dibujo y la base)
-from simulacion import Simulacion, robot  # import robot por compatibilidad si hace falta
+# Intentamos importar la clase de simulación con compatibilidad:
+# Si simulacion.py define RobotSimulation la usamos; si define Simulacion (nombre viejo), la renombramos.
+try:
+    from simulacion import RobotSimulation as SimClass
+except Exception:
+    try:
+        from simulacion import Simulacion as SimClass
+    except Exception:
+        raise ImportError("No se pudo importar la clase de simulación desde simulacion.py. "
+                          "Asegúrate de que exista RobotSimulation o Simulacion en ese archivo.")
 
 # ==============================
 # CONFIGURACIÓN PCA9685 Y SERVOS
@@ -31,7 +39,7 @@ servo_config = {
     5: {"offset": 0, "invert": False},  # Pinza
 }
 
-# Longitudes de eslabones (definidas también en simulacion.py)
+# Longitudes de eslabones (definidas también en simulacion.py si es necesario)
 L1, L2, L3 = 9, 9, 9
 
 # ==============================
@@ -51,7 +59,7 @@ class ServoControl(QWidget):
         self.robot_parado = False
 
         # Creamos el objeto de simulación (mantiene la figura y el eje)
-        self.sim = Simulacion()
+        self.sim = SimClass()
 
         self.initUI()
         # mostramos primera posición en la simulación
@@ -73,10 +81,10 @@ class ServoControl(QWidget):
         self.labels = []
         self.sliders = []
 
-        nombres = ["Base", "Hombro", "Codo", "Muñeca"]
+        self.nombres = ["Base", "Hombro", "Codo", "Muñeca"]
 
         for i in range(4):
-            lbl = QLabel(f"{nombres[i]}: 0°", self)
+            lbl = QLabel(f"{self.nombres[i]}: 0°", self)
             sld = QSlider(Qt.Horizontal, self)
             sld.setMinimum(0)
             sld.setMaximum(180)
@@ -115,8 +123,13 @@ class ServoControl(QWidget):
     # CHECK SENSORES
     # ====================================
     def check_sensors(self):
-        dist_lento = self.sensor_lento.medir()
-        dist_parada = self.sensor_parada.medir()
+        try:
+            dist_lento = self.sensor_lento.medir()
+            dist_parada = self.sensor_parada.medir()
+        except Exception as e:
+            # Si hay error leyendo sensores, no bloqueamos la UI, solo avisamos por consola
+            print("Error leyendo sensores:", e)
+            return
 
         # Parada total
         if dist_parada < 10:
@@ -139,8 +152,6 @@ class ServoControl(QWidget):
     # CONTROL DE SERVOS
     # ====================================
     def move_servo(self, index, angle):
-        nombres = ["Base", "Hombro", "Codo", "Muñeca"]
-
         # Parada total
         if self.robot_parado:
             print("⛔ Robot detenido por sensores")
@@ -150,6 +161,7 @@ class ServoControl(QWidget):
         if self.robot_lento:
             time.sleep(0.05)
 
+        # Guardar y aplicar ángulo
         self.angles[index] = angle
 
         if index == 0:
@@ -162,8 +174,10 @@ class ServoControl(QWidget):
         elif index == 3:
             self.set_servo_angle(4, angle)
 
-        self.labels[index].setText(f"{nombres[index]}: {angle}°")
+        # Actualizar label
+        self.labels[index].setText(f"{self.nombres[index]}: {angle}°")
 
+        # Actualizar posición final (cinemática directa)
         pos = self.forward_kinematics(*self.angles)
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
 
@@ -206,11 +220,14 @@ class ServoControl(QWidget):
         return T[:3, 3]
 
     # ====================================
-    # SIMULACIÓN (usa la clase Simulacion)
+    # SIMULACIÓN (usa la clase de simulación importada)
     # ====================================
     def update_simulation(self):
-        # Delegamos la actualización de la vista a la clase Simulacion
-        self.sim.update(self.angles)
+        # Delegamos la actualización de la vista a la clase de simulación
+        try:
+            self.sim.update(self.angles)
+        except Exception as e:
+            print("Error actualizando simulación:", e)
 
 # ==============================
 # MAIN
