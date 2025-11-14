@@ -62,15 +62,20 @@ class ServoControl(QWidget):
         # Sliders para articulaciones
         self.labels = []
         self.sliders = []
+        
+
+        nombres = ["Base", "Hombro", "Codo", "Muñeca"]
         for i in range(4):
-            lbl = QLabel(f"Articulación {i+1}: 0°", self)
+            lbl = QLabel(f"{nombres[i]}: 0°", self)
             sld = QSlider(Qt.Horizontal, self)
             sld.setMinimum(0)
             sld.setMaximum(180)
             sld.setValue(0)
             sld.valueChanged.connect(lambda val, idx=i: self.move_servo(idx, val))
+
             layout.addWidget(lbl)
             layout.addWidget(sld)
+
             self.labels.append(lbl)
             self.sliders.append(sld)
 
@@ -89,7 +94,7 @@ class ServoControl(QWidget):
         layout.addLayout(btn_layout)
 
         self.setLayout(layout)
-        self.setWindowTitle("Control Robot 4R - Simulación + PCA9685")
+        self.setWindowTitle("Control Robot 4R - Modo manual")
         self.setGeometry(200, 200, 400, 300)
 
     # ====================================
