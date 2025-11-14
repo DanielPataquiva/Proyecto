@@ -101,7 +101,10 @@ class ServoControl(QWidget):
     # CONTROL DE SERVOS
     # ====================================
     def move_servo(self, index, angle):
+        nombres = ["Base", "Hombro", "Codo", "Muñeca"]  # nombres correctos
+
         self.angles[index] = angle
+
         if index == 0:
             self.set_servo_angle(0, angle)
         elif index == 1:
@@ -112,9 +115,12 @@ class ServoControl(QWidget):
         elif index == 3:
             self.set_servo_angle(4, angle)
 
-        self.labels[index].setText(f"Articulación {index+1}: {angle}°")
+        # Actualizar label con el nombre correcto
+        self.labels[index].setText(f"{nombres[index]}: {angle}°")
+
         pos = self.forward_kinematics(*self.angles)
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
+
 
     def set_servo_angle(self, channel, angle):
         cfg = servo_config[channel]
