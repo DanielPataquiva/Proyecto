@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # MODELO DEL ROBOT
 # ============================
 
-L1, L2, L3 = 5, 5, 5
+L1, L2, L3 = 9, 9, 9
 
 links = [
     RevoluteDH(d=0, a=0, alpha=np.deg2rad(90)),  # Base

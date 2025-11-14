@@ -1,4 +1,5 @@
 import sys
+import time
 import numpy as np
 from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
 from PyQt5.QtCore import Qt, QTimer
@@ -7,6 +8,9 @@ from roboticstoolbox import DHRobot, RevoluteDH
 import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
+
+# Sensores
+from sensor import Ultrasonico
 
 # ==============================
 # CONFIGURACIÓN PCA9685 Y SERVOS
@@ -25,7 +29,7 @@ servo_config = {
 }
 
 # Longitudes de eslabones
-L1, L2, L3 = 5, 5, 5
+L1, L2, L3 = 9, 9, 9
 
 # ==============================
 # MODELO DEL ROBOT
@@ -44,27 +48,37 @@ robot = DHRobot(links, name="Robot_4R")
 class ServoControl(QWidget):
     def __init__(self):
         super().__init__()
-        # Inicializamos todos los ángulos en 0
+
         self.angles = [0, 0, 0, 0]
+
+        # Sensores (PINES REALES)
+        self.sensor_lento = Ultrasonico(trigger=17, echo=27)   # modo lento
+        self.sensor_parada = Ultrasonico(trigger=23, echo=24)  # parada total
+
+        self.robot_lento = False
+        self.robot_parado = False
+
         self.initUI()
-        
-        # Creamos la simulación 3D
-        self.update_simulation()  # muestra la primera posición
-        
-        # Timer para actualizar la simulación
+        self.update_simulation()
+
+        # Timer simulación
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_simulation)
-        self.timer.start(100)  # cada 100 ms
+        self.timer.start(100)
+
+        # Timer sensores
+        self.sensor_timer = QTimer()
+        self.sensor_timer.timeout.connect(self.check_sensors)
+        self.sensor_timer.start(200)
 
     def initUI(self):
         layout = QVBoxLayout()
 
-        # Sliders para articulaciones
         self.labels = []
         self.sliders = []
-        
 
         nombres = ["Base", "Hombro", "Codo", "Muñeca"]
+
         for i in range(4):
             lbl = QLabel(f"{nombres[i]}: 0°", self)
             sld = QSlider(Qt.Horizontal, self)
@@ -79,9 +93,13 @@ class ServoControl(QWidget):
             self.labels.append(lbl)
             self.sliders.append(sld)
 
-        # Label para posición final
+        # Posición final
         self.pos_label = QLabel("Posición final: (x, y, z)", self)
         layout.addWidget(self.pos_label)
+
+        # Sensores estado
+        self.sensor_label = QLabel("Estado sensores: Normal", self)
+        layout.addWidget(self.sensor_label)
 
         # Botones Pick y Place
         btn_layout = QHBoxLayout()
@@ -98,10 +116,43 @@ class ServoControl(QWidget):
         self.setGeometry(200, 200, 400, 300)
 
     # ====================================
+    # CHECK SENSORES
+    # ====================================
+    def check_sensors(self):
+        dist_lento = self.sensor_lento.medir()
+        dist_parada = self.sensor_parada.medir()
+
+        # Parada total
+        if dist_parada < 10:
+            self.robot_parado = True
+            self.sensor_label.setText("Estado sensores: 🔴 DETENIDO (<10 cm)")
+        else:
+            self.robot_parado = False
+
+        # Modo lento
+        if dist_lento < 10:
+            self.robot_lento = True
+            if not self.robot_parado:
+                self.sensor_label.setText("Estado sensores: 🟡 MODO LENTO (<10 cm)")
+        else:
+            self.robot_lento = False
+            if not self.robot_parado:
+                self.sensor_label.setText("Estado sensores: 🟢 Normal")
+
+    # ====================================
     # CONTROL DE SERVOS
     # ====================================
     def move_servo(self, index, angle):
-        nombres = ["Base", "Hombro", "Codo", "Muñeca"]  # nombres correctos
+        nombres = ["Base", "Hombro", "Codo", "Muñeca"]
+
+        # Parada total
+        if self.robot_parado:
+            print("⛔ Robot detenido por sensores")
+            return
+
+        # Modo lento
+        if self.robot_lento:
+            time.sleep(0.05)
 
         self.angles[index] = angle
 
@@ -115,12 +166,10 @@ class ServoControl(QWidget):
         elif index == 3:
             self.set_servo_angle(4, angle)
 
-        # Actualizar label con el nombre correcto
         self.labels[index].setText(f"{nombres[index]}: {angle}°")
 
         pos = self.forward_kinematics(*self.angles)
         self.pos_label.setText(f"Posición final: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
-
 
     def set_servo_angle(self, channel, angle):
         cfg = servo_config[channel]
@@ -135,10 +184,10 @@ class ServoControl(QWidget):
     # PICK Y PLACE
     # ====================================
     def pick(self):
-        self.set_servo_angle(5, 0)  # Pinza cerrada
+        self.set_servo_angle(5, 0)
 
     def place(self):
-        self.set_servo_angle(5, 180)  # Pinza abierta
+        self.set_servo_angle(5, 180)
 
     # ====================================
     # CINEMÁTICA DIRECTA
@@ -165,9 +214,9 @@ class ServoControl(QWidget):
     # ====================================
     def update_simulation(self):
         q_rad = np.deg2rad(self.angles)
-        plt.clf()  # limpia la figura anterior
+        plt.clf()
         robot.plot(q_rad, block=False, limits=[-20, 20, -20, 20, 0, 25])
-        plt.pause(0.001)  # fuerza actualización
+        plt.pause(0.001)
 
 # ==============================
 # MAIN
